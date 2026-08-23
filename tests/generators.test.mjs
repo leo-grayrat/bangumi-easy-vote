@@ -1,72 +1,148 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { generateImportText, sanitizeImportText } from '../src/generators.js';
+import { expandQuestions, generateImportText, sanitizeImportText } from '../src/generators.js';
 
 const entries = [
-  { id: 'one', title: '世界舞动' },
-  { id: 'two', title: '相反的你和我 第2期' },
+  { id: 'one', title: '世界舞动', selectedAssetId: 'asset-one' },
+  { id: 'two', title: '相反的你和我', selectedAssetId: 'asset-two' },
 ];
 
-function project(platform, template, overrides = {}) {
+function project(platform, questionTemplate, overrides = {}) {
   return {
     title: '2026 年 7 月新番投票',
     description: '请选择符合你真实想法的选项。',
     platform,
-    template,
+    questionTemplate,
     entries,
     ...overrides,
   };
 }
 
-test('generates a WJX single-choice vote without option prefixes or internal blanks', () => {
-  const output = generateImportText(project('wjx', 'vote'));
+function template(overrides = {}) {
+  return {
+    expansion: 'perAnime',
+    prompt: '请为《{title}》评分',
+    type: 'scale',
+    options: [],
+    scale: { min: 1, max: 5, minLabel: '低', maxLabel: '高' },
+    ...overrides,
+  };
+}
 
-  assert.match(output, /本季你最期待哪一部动画？ \[单选题\]/);
-  assert.match(output, /\[单选题\]\n世界舞动\n相反的你和我 第2期/);
-  assert.doesNotMatch(output, /^A[.、 ]/m);
+test('expands every anime into an editable scale question with its preview asset metadata', () => {
+  const questions = expandQuestions(project('wjx', template()));
+
+  assert.deepEqual(questions, [
+    {
+      ordinal: 1,
+      prompt: '请为《世界舞动》评分',
+      type: 'scale',
+      options: [],
+      scale: { min: 1, max: 5, minLabel: '低', maxLabel: '高' },
+      animeEntryId: 'one',
+      selectedAssetId: 'asset-one',
+    },
+    {
+      ordinal: 2,
+      prompt: '请为《相反的你和我》评分',
+      type: 'scale',
+      options: [],
+      scale: { min: 1, max: 5, minLabel: '低', maxLabel: '高' },
+      animeEntryId: 'two',
+      selectedAssetId: 'asset-two',
+    },
+  ]);
 });
 
-test('generates one WJX score matrix with anime titles as rows', () => {
-  const output = generateImportText(project('wjx', 'score'));
+test('formats per-anime scales as two independent questions instead of a matrix on both platforms', () => {
+  for (const platform of ['wjx', 'tencent']) {
+    const output = generateImportText(project(platform, template()));
 
-  assert.equal((output.match(/\[矩阵题\]/g) ?? []).length, 1);
-  assert.match(output, /\[矩阵题\]\n1 2 3 4 5\n世界舞动\n相反的你和我 第2期/);
+    assert.equal((output.match(/\[量表题\]/g) ?? []).length, 2);
+    assert.equal((output.match(/1\(低\)~5\(高\)/g) ?? []).length, 2);
+    assert.doesNotMatch(output, /\[矩阵题\]/);
+  }
 });
 
-test('generates one WJX status matrix with the four fixed states', () => {
-  const output = generateImportText(project('wjx', 'status'));
-
-  assert.match(
-    output,
-    /\[矩阵题\]\n必追 观望 不追 尚未决定\n世界舞动\n相反的你和我 第2期/,
+test('turns all anime titles into one option question without per-option asset bindings', () => {
+  const questions = expandQuestions(
+    project('wjx', template({ expansion: 'allAsOptions', prompt: '最期待哪部？', type: 'single' })),
   );
+
+  assert.deepEqual(questions, [
+    {
+      ordinal: 1,
+      prompt: '最期待哪部？',
+      type: 'single',
+      options: ['世界舞动', '相反的你和我'],
+      scale: { min: 1, max: 5, minLabel: '低', maxLabel: '高' },
+      animeEntryId: '',
+      selectedAssetId: '',
+    },
+  ]);
 });
 
-test('generates a Tencent single-choice vote with a welcome paragraph', () => {
-  const output = generateImportText(project('tencent', 'vote'));
+test('uses platform-specific option prefixes for one aggregate single-choice question', () => {
+  const aggregate = template({ expansion: 'allAsOptions', prompt: '最期待哪部？', type: 'single' });
+  const wjxText = generateImportText(project('wjx', aggregate));
+  const tencentText = generateImportText(project('tencent', aggregate));
 
-  assert.match(
-    output,
-    /^2026 年 7 月新番投票\n\n请选择符合你真实想法的选项。\n\n本季你最期待哪一部动画？ \[单选题\]/,
+  assert.match(wjxText, /A\.世界舞动\nB\.相反的你和我/);
+  assert.match(tencentText, /\[单选题\]\n世界舞动\n相反的你和我/);
+  assert.doesNotMatch(tencentText, /A\.世界舞动/);
+});
+
+test('formats each verified Tencent question type with its real import label and no manual number', () => {
+  const cases = [
+    ['single', '[单选题]', ['推荐', '不推荐']],
+    ['multiple', '[多选题]', ['作画', '音乐']],
+    ['dropdown', '[下拉题]', ['追', '不追']],
+    ['scale', '[量表题]', ['1(低)~5(高)']],
+    ['shortText', '[单行文本题]', []],
+    ['longText', '[多行文本题]', []],
+  ];
+
+  for (const [type, label, expectedLines] of cases) {
+    const output = generateImportText(
+      project('tencent', template({ type, options: expectedLines, prompt: '《{title}》感想' })),
+    );
+    const firstQuestion = output.split('\n\n').at(-2);
+
+    assert.match(
+      firstQuestion.split('\n')[0],
+      new RegExp(`^《世界舞动》感想${label.replace(/[\[\]]/g, '\\$&')}$`),
+    );
+    for (const line of expectedLines) {
+      assert.match(output, new RegExp(`\\n${line.replace(/[()~]/g, '\\$&')}(?:\\n|$)`));
+    }
+    assert.doesNotMatch(firstQuestion, /^1\./);
+  }
+});
+
+test('rejects unverified WJX dropdown and long-text templates before creating import text', () => {
+  for (const type of ['dropdown', 'longText']) {
+    assert.throws(
+      () => generateImportText(project('wjx', template({ type }))),
+      /尚未实测支持/,
+    );
+  }
+});
+
+test('cleans generated platform text without leaking preview asset IDs or tag trailing whitespace', () => {
+  const output = generateImportText(
+    project('tencent', template({ type: 'multiple', options: ['好\u200B\n', '一般\t'] }), {
+      title: '七月\u200B\n新番',
+      description: '第一句\r\n第二句',
+      entries: [{ id: 'one', title: '世界\n舞动', selectedAssetId: 'asset-only-preview' }],
+    }),
   );
-  assert.match(output, /\[单选题\]\n世界舞动\n相反的你和我 第2期/);
-});
 
-test('expands Tencent scoring into one scale question per anime', () => {
-  const output = generateImportText(project('tencent', 'score'));
-
-  assert.equal((output.match(/\[量表题\]/g) ?? []).length, 2);
-  assert.equal((output.match(/1\(完全不感兴趣\)~5\(非常期待\)/g) ?? []).length, 2);
-  assert.doesNotMatch(output, /\[矩阵题\]/);
-});
-
-test('expands Tencent status into one dropdown per anime', () => {
-  const output = generateImportText(project('tencent', 'status'));
-
-  assert.equal((output.match(/\[下拉题\]/g) ?? []).length, 2);
-  assert.match(output, /\[下拉题\]\n必追\n观望\n不追\n尚未决定/);
-  assert.doesNotMatch(output, /\[矩阵题\]/);
+  assert.match(output, /^七月 新番\n\n第一句 第二句/);
+  assert.match(output, /《世界 舞动》评分\[多选题\]\n好\n一般/);
+  assert.doesNotMatch(output, /[\u200B-\u200D\uFEFF]/);
+  assert.doesNotMatch(output, /asset-only-preview/);
+  assert.doesNotMatch(output, /\[[^\]]+题\][ \t\u3000]/);
 });
 
 test('sanitizes invisible characters, line endings, trailing spaces and blank runs', () => {
@@ -75,29 +151,7 @@ test('sanitizes invisible characters, line endings, trailing spaces and blank ru
   assert.equal(sanitizeImportText(dirty), '标题\n\n题目 [单选题]\n选项');
 });
 
-test('cleans line breaks out of user fields before generating platform text', () => {
-  const output = generateImportText(
-    project('tencent', 'vote', {
-      title: '七月\u200B\n新番',
-      description: '第一句\r\n第二句',
-      entries: [{ id: 'one', title: '世界\n舞动' }],
-    }),
-  );
-
-  assert.match(output, /^七月 新番\n\n第一句 第二句/);
-  assert.match(output, /\[单选题\]\n世界 舞动$/);
-  assert.doesNotMatch(output, /[\u200B-\u200D\uFEFF]/);
-});
-
-test('never leaves whitespace after a question type tag', () => {
-  for (const platform of ['wjx', 'tencent']) {
-    for (const template of ['vote', 'score', 'status']) {
-      assert.doesNotMatch(generateImportText(project(platform, template)), /\[[^\]]+题\][ \t\u3000]/);
-    }
-  }
-});
-
-test('rejects unsupported platform and template combinations', () => {
-  assert.throws(() => generateImportText(project('unknown', 'vote')), /不支持的平台/);
-  assert.throws(() => generateImportText(project('wjx', 'unknown')), /不支持的题目范式/);
+test('rejects unsupported platforms and question types', () => {
+  assert.throws(() => generateImportText(project('unknown', template())), /不支持的平台/);
+  assert.throws(() => generateImportText(project('wjx', template({ type: 'unknown' }))), /不支持的题目类型/);
 });

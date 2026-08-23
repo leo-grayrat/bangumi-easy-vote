@@ -1,6 +1,15 @@
 const SUPPORTED_PLATFORMS = new Set(['wjx', 'tencent']);
-const SUPPORTED_TEMPLATES = new Set(['vote', 'score', 'status']);
-const STATUS_OPTIONS = ['必追', '观望', '不追', '尚未决定'];
+const SUPPORTED_TYPES = new Set(['single', 'multiple', 'dropdown', 'scale', 'shortText', 'longText']);
+const SUPPORTED_EXPANSIONS = new Set(['perAnime', 'allAsOptions']);
+
+const TENCENT_TYPE_LABELS = {
+  single: '[单选题]',
+  multiple: '[多选题]',
+  dropdown: '[下拉题]',
+  scale: '[量表题]',
+  shortText: '[单行文本题]',
+  longText: '[多行文本题]',
+};
 
 export function sanitizeImportText(text) {
   return String(text ?? '')
@@ -24,25 +33,100 @@ function cleanInline(value, fallback = '') {
   return cleaned || fallback;
 }
 
-function entryTitles(project) {
-  const titles = (Array.isArray(project.entries) ? project.entries : [])
-    .map((entry) => cleanInline(entry?.title))
-    .filter(Boolean);
+function cleanEntries(project) {
+  const entries = (Array.isArray(project?.entries) ? project.entries : [])
+    .map((entry) => ({
+      id: String(entry?.id ?? ''),
+      title: cleanInline(entry?.title),
+      selectedAssetId: String(entry?.selectedAssetId ?? ''),
+    }))
+    .filter((entry) => entry.title);
 
-  if (titles.length === 0) {
+  if (entries.length === 0) {
     throw new Error('至少需要一个有效的动画标题。');
   }
 
-  return titles;
+  return entries;
+}
+
+function cleanScale(scale) {
+  return {
+    min: scale?.min,
+    max: scale?.max,
+    minLabel: cleanInline(scale?.minLabel),
+    maxLabel: cleanInline(scale?.maxLabel),
+  };
+}
+
+function cleanQuestionTemplate(project) {
+  const template = project?.questionTemplate;
+  const type = template?.type;
+  const expansion = template?.expansion;
+
+  if (!SUPPORTED_TYPES.has(type)) {
+    throw new Error(`不支持的题目类型：${type ?? '未选择'}`);
+  }
+  if (!SUPPORTED_EXPANSIONS.has(expansion)) {
+    throw new Error(`不支持的题目展开方式：${expansion ?? '未选择'}`);
+  }
+
+  return {
+    expansion,
+    prompt: cleanInline(template?.prompt),
+    type,
+    options: (Array.isArray(template?.options) ? template.options : [])
+      .map((option) => cleanInline(option))
+      .filter(Boolean),
+    scale: cleanScale(template?.scale),
+  };
+}
+
+function interpolate(prompt, entry, index) {
+  return cleanInline(
+    prompt.replaceAll('{title}', entry.title).replaceAll('{index}', String(index + 1)),
+  );
+}
+
+export function expandQuestions(project) {
+  const template = cleanQuestionTemplate(project);
+  const entries = cleanEntries(project);
+
+  if (template.expansion === 'allAsOptions') {
+    return [
+      {
+        ordinal: 1,
+        prompt: template.prompt,
+        type: template.type,
+        options: entries.map((entry) => entry.title),
+        scale: { ...template.scale },
+        animeEntryId: '',
+        selectedAssetId: '',
+      },
+    ];
+  }
+
+  return entries.map((entry, index) => ({
+    ordinal: index + 1,
+    prompt: interpolate(template.prompt, entry, index),
+    type: template.type,
+    options: [...template.options],
+    scale: { ...template.scale },
+    animeEntryId: entry.id,
+    selectedAssetId: entry.selectedAssetId,
+  }));
 }
 
 function projectHeading(project) {
-  return cleanInline(project.title, '动画投票');
+  return cleanInline(project?.title, '动画投票');
+}
+
+function projectDescription(project) {
+  return cleanInline(project?.description);
 }
 
 function wjxPreamble(project) {
   const sections = [projectHeading(project)];
-  const description = cleanInline(project.description);
+  const description = projectDescription(project);
 
   if (description) {
     sections.push(`问卷说明 [段落说明]\n${description}`);
@@ -53,7 +137,7 @@ function wjxPreamble(project) {
 
 function tencentPreamble(project) {
   const sections = [projectHeading(project)];
-  const description = cleanInline(project.description);
+  const description = projectDescription(project);
 
   if (description) {
     sections.push(description);
@@ -62,58 +146,69 @@ function tencentPreamble(project) {
   return sections;
 }
 
-function generateWjx(project, titles) {
-  const sections = wjxPreamble(project);
+function optionLetter(index) {
+  let number = index;
+  let letters = '';
 
-  if (project.template === 'vote') {
-    sections.push(`1.本季你最期待哪一部动画？ [单选题]\n${titles.join('\n')}`);
-  } else if (project.template === 'score') {
-    sections.push(`1.请为以下动画评分 [矩阵题]\n1 2 3 4 5\n${titles.join('\n')}`);
-  } else if (project.template === 'status') {
-    sections.push(
-      `1.请选择每部动画的追番状态 [矩阵题]\n${STATUS_OPTIONS.join(' ')}\n${titles.join('\n')}`,
-    );
-  }
+  do {
+    letters = String.fromCharCode(65 + (number % 26)) + letters;
+    number = Math.floor(number / 26) - 1;
+  } while (number >= 0);
 
-  return sections.join('\n\n');
+  return letters;
 }
 
-function generateTencent(project, titles) {
-  const sections = tencentPreamble(project);
-
-  if (project.template === 'vote') {
-    sections.push(`本季你最期待哪一部动画？ [单选题]\n${titles.join('\n')}`);
-  } else if (project.template === 'score') {
-    sections.push(
-      ...titles.map(
-        (title) => `请为《${title}》评分 [量表题]\n1(完全不感兴趣)~5(非常期待)`,
-      ),
-    );
-  } else if (project.template === 'status') {
-    sections.push(
-      ...titles.map(
-        (title) => `《${title}》的追番状态 [下拉题]\n${STATUS_OPTIONS.join('\n')}`,
-      ),
-    );
-  }
-
-  return sections.join('\n\n');
+function formatScale(question) {
+  return `${question.scale.min}(${question.scale.minLabel})~${question.scale.max}(${question.scale.maxLabel})`;
 }
 
-export function generateImportText(project) {
+function formatWjxQuestion(question) {
+  if (question.type === 'dropdown' || question.type === 'longText') {
+    throw new Error(`问卷星的 ${question.type} 题型尚未实测支持，暂不能生成导入文本。`);
+  }
+
+  const heading = `${question.ordinal}.${question.prompt}`;
+  if (question.type === 'single') {
+    return [heading, ...question.options.map((option, index) => `${optionLetter(index)}.${option}`)].join('\n');
+  }
+  if (question.type === 'multiple') {
+    return [
+      `${heading} [多选题]`,
+      ...question.options.map((option, index) => `${optionLetter(index)}.${option}`),
+    ].join('\n');
+  }
+  if (question.type === 'scale') {
+    return `${heading} [量表题]\n${formatScale(question)}`;
+  }
+
+  return heading;
+}
+
+function formatTencentQuestion(question) {
+  const heading = `${question.prompt}${TENCENT_TYPE_LABELS[question.type]}`;
+
+  if (question.type === 'scale') {
+    return `${heading}\n${formatScale(question)}`;
+  }
+  if (['single', 'multiple', 'dropdown'].includes(question.type)) {
+    return [heading, ...question.options].join('\n');
+  }
+
+  return heading;
+}
+
+function assertSupportedPlatform(project) {
   if (!SUPPORTED_PLATFORMS.has(project?.platform)) {
     throw new Error(`不支持的平台：${project?.platform ?? '未选择'}`);
   }
+}
 
-  if (!SUPPORTED_TEMPLATES.has(project?.template)) {
-    throw new Error(`不支持的题目范式：${project?.template ?? '未选择'}`);
-  }
+export function generateImportText(project) {
+  assertSupportedPlatform(project);
+  const questions = expandQuestions(project);
+  const sections = project.platform === 'wjx' ? wjxPreamble(project) : tencentPreamble(project);
+  const formatter = project.platform === 'wjx' ? formatWjxQuestion : formatTencentQuestion;
 
-  const titles = entryTitles(project);
-  const output =
-    project.platform === 'wjx'
-      ? generateWjx(project, titles)
-      : generateTencent(project, titles);
-
-  return sanitizeImportText(output);
+  sections.push(...questions.map(formatter));
+  return sanitizeImportText(sections.join('\n\n'));
 }
