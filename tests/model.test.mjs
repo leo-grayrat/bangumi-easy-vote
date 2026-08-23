@@ -180,6 +180,24 @@ test('validateProject reports unsupported question settings and placeholder misu
   assert.ok(validateProject(allAsOptionsWithTitlePlaceholder).errors.some((x) => x.code === 'placeholder-not-available'));
 });
 
+test('validateProject rejects empty and unmatched placeholder braces', () => {
+  const project = {
+    title: '七月新番投票',
+    description: '',
+    platform: 'wjx',
+    entries: [{ id: 'one', title: '世界舞动' }],
+  };
+
+  for (const prompt of ['《{}》好看吗？', '《{title》好看吗？', '《title}》好看吗？']) {
+    const result = validateProject({
+      ...project,
+      questionTemplate: createQuestionTemplate({ prompt }),
+    });
+
+    assert.ok(result.errors.some((issue) => issue.code === 'invalid-placeholder-syntax'));
+  }
+});
+
 test('serializeProject emits the normalized version 2 project without temporary image fields', () => {
   const serialized = serializeProject({
     title: '七月新番投票',

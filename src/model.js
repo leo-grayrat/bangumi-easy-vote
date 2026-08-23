@@ -138,8 +138,37 @@ function issue(code, message, entryId) {
   return entryId ? { code, message, entryId } : { code, message };
 }
 
-function placeholderNames(prompt) {
-  return [...String(prompt ?? '').matchAll(/\{([^{}]+)\}/g)].map((match) => match[1]);
+function parsePlaceholders(prompt) {
+  const source = String(prompt ?? '');
+  const names = [];
+  let malformed = false;
+
+  for (let index = 0; index < source.length; index += 1) {
+    if (source[index] === '}') {
+      malformed = true;
+      continue;
+    }
+
+    if (source[index] !== '{') {
+      continue;
+    }
+
+    const closingIndex = source.indexOf('}', index + 1);
+    if (closingIndex === -1) {
+      malformed = true;
+      break;
+    }
+
+    const name = source.slice(index + 1, closingIndex);
+    if (!name || name.includes('{')) {
+      malformed = true;
+    } else {
+      names.push(name);
+    }
+    index = closingIndex;
+  }
+
+  return { names, malformed };
 }
 
 function validateQuestionTemplate(template, errors, warnings) {
@@ -165,14 +194,17 @@ function validateQuestionTemplate(template, errors, warnings) {
     errors.push(issue('invalid-scale-range', '量表最小值不能大于最大值。'));
   }
 
-  const placeholders = placeholderNames(template?.prompt);
-  for (const placeholder of placeholders) {
+  const placeholders = parsePlaceholders(template?.prompt);
+  if (placeholders.malformed) {
+    errors.push(issue('invalid-placeholder-syntax', '占位符必须是完整的 {title} 或 {index}。'));
+  }
+  for (const placeholder of placeholders.names) {
     if (placeholder !== 'title' && placeholder !== 'index') {
       errors.push(issue('unknown-placeholder', `不支持占位符 {${placeholder}}。`));
     }
   }
 
-  if (template?.expansion === 'perAnime' && !placeholders.includes('title')) {
+  if (template?.expansion === 'perAnime' && !placeholders.names.includes('title')) {
     warnings.push(issue('prompt-without-title', '逐部题目题干没有使用 {title}。'));
   }
 
@@ -180,7 +212,7 @@ function validateQuestionTemplate(template, errors, warnings) {
     if (!['single', 'multiple', 'dropdown'].includes(template?.type)) {
       errors.push(issue('invalid-aggregate-question-type', '聚合题目只支持选择题。'));
     }
-    if (placeholders.includes('title') || placeholders.includes('index')) {
+    if (placeholders.names.includes('title') || placeholders.names.includes('index')) {
       errors.push(issue('placeholder-not-available', '聚合题目不能使用逐部动画占位符。'));
     }
   }
