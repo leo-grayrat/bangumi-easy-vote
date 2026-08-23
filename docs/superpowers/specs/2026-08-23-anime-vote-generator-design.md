@@ -22,7 +22,6 @@
 - 选择题和下拉题按“每行一个选项”编辑。
 - 量表题编辑最小值、最大值以及两端文字。
 - 文本题不显示无关的选项设置。
-- 用户决定是否必答。
 
 模板提供两种展开方式：
 
@@ -86,11 +85,11 @@ AnimeEntry {
 - 题型标签后不留空格。
 - 选择题题干与选项之间不插空行。
 - 题目之间只保留一个空行。
-- 不自动添加 `A.`、`B.` 等选项前缀。
+- 问卷星选择题由生成器连续添加 `A.`、`B.` 等前缀，腾讯问卷不添加；两者都以 `form-import-findings.md` 的真实页面结果为准。
 
-### 4.2 第二阶段：在平台编辑器补图
+### 4.2 后续阶段：在平台编辑器补图
 
-问卷星文本导入不能携带图片，因此本项目同时生成一份上传任务清单：
+问卷星文本导入不能携带图片。下列上传任务清单是后续适配器的数据契约，不属于当前本地编辑器基础阶段：
 
 ```text
 ImageUploadTask {
@@ -102,7 +101,7 @@ ImageUploadTask {
 }
 ```
 
-用户把文本导入平台并进入正式编辑界面后，浏览器辅助程序执行以下步骤：
+只有先在登录后的真实编辑页找到题目图片入口、完成一次受控上传并确认页面结果，才实现这份任务清单和浏览器辅助程序。不得先生成一份没有真实消费者的清单，也不得用模拟 DOM 代替平台验证。验证通过后的流程为：
 
 1. 读取平台当前实际生成的题目列表。
 2. 按题号和规范化后的题干同时核对上传任务。
@@ -111,23 +110,25 @@ ImageUploadTask {
 5. 每次上传后检查图片是否出现在正确题目中，记录已完成位置，支持中断后继续。
 6. 只编辑当前问卷，不点击发布、完成、分享或提交。
 
-本地网页受浏览器同源策略限制，不能直接控制 `wjx.cn` 或 `wj.qq.com`。上传阶段必须由运行在目标编辑页上下文中的浏览器辅助层完成。首个适配器以问卷星为完成标准；腾讯问卷使用同一任务清单和适配器接口，在实际编辑页验证后接入，不猜测其图片按钮结构。
+本地网页受浏览器同源策略限制，不能直接控制 `wjx.cn` 或 `wj.qq.com`。上传阶段必须由运行在目标编辑页上下文中的浏览器辅助层完成。首个适配器以问卷星真实编辑页为完成标准；腾讯问卷必须另行实测，不复用问卷星 DOM 假设。当前本地页面不显示“上传到平台”按钮，也不声称已经支持补图。
 
 ## 5. 视觉来源：直接复用 Bangumi 官方前端 CSS
 
-界面不再选择或生成任何“AI 主题”。样式直接取自 Bangumi 官方前端仓库的公开实现：
+界面不再选择或生成任何“AI 主题”。样式固定取自 Bangumi 官方前端提交 [`b288723022873123cb8c8ccf77c2baf3c98bfb84`](https://github.com/bangumi/frontend/tree/b288723022873123cb8c8ccf77c2baf3c98bfb84)，不跟随 `master` 漂移：
 
-- 颜色变量来自 [`packages/design/theme/variables.less`](https://github.com/bangumi/frontend/blob/master/packages/design/theme/variables.less)。
-- 按钮规则来自 [`packages/design/components/Button/index.tsx`](https://github.com/bangumi/frontend/blob/master/packages/design/components/Button/index.tsx)。
-- 输入框、页签和布局规则分别来自官方 `Input`、`Tab`、`Layout` 组件。
+- 全局字体和基础元素来自 [`packages/website/src/index.css`](https://github.com/bangumi/frontend/blob/b288723022873123cb8c8ccf77c2baf3c98bfb84/packages/website/src/index.css)。
+- 按钮、输入框和页签分别来自官方 [`Button`](https://github.com/bangumi/frontend/blob/b288723022873123cb8c8ccf77c2baf3c98bfb84/packages/design/components/Button/index.tsx)、[`Input`](https://github.com/bangumi/frontend/blob/b288723022873123cb8c8ccf77c2baf3c98bfb84/packages/design/components/Input/index.tsx) 和 [`Tab`](https://github.com/bangumi/frontend/blob/b288723022873123cb8c8ccf77c2baf3c98bfb84/packages/design/components/Tab/index.tsx) 组件。
+- `textarea` 和 `select` 分别取自官方 [`Editor`](https://github.com/bangumi/frontend/blob/b288723022873123cb8c8ccf77c2baf3c98bfb84/packages/design/components/EditorForm/Editor.tsx) 和 [`Select`](https://github.com/bangumi/frontend/blob/b288723022873123cb8c8ccf77c2baf3c98bfb84/packages/design/components/Select/index.tsx)，不假称它们来自 `Input`。
 
 移植原则：
 
 - 保留官方颜色值、字号、边框、圆角、控件高度、间距和 hover 规则，不重新解释为另一套主题。
-- 把 Panda CSS/React 写法机械转换为本项目可用的原生 CSS 类。
+- 把组件中的 CSS-in-JS 样式对象逐项机械转换为本项目可用的原生 CSS 类；属性、数值、颜色和状态保持不变。
 - 只移植本项目实际使用的组件规则，不复制无关页面或业务组件。
 - 在 `THIRD_PARTY_NOTICES.md` 记录来源、文件路径和 Bangumi Frontend 的 BSD-3-Clause 许可证。
 - 不使用 Bangumi 的商标图形冒充官方网站；项目名称仍为“番组投票台”。
+
+官方 `Layout` 是“主栏 + 246px 右栏”，并不是本项目的编辑器结构。本项目页面布局单独写在自有 CSS 分区，不能把自定义多栏布局标成 Bangumi 原规则。
 
 主界面沿用 Bangumi 的紧凑信息密度：白色页面、粉色主操作、蓝色链接或次操作、灰色边框和小字号控件。删除原页面的大标题、宣传式说明、重复帮助文字、固定诊断卡片和口号式页脚。
 
@@ -148,7 +149,7 @@ ImageUploadTask {
 ### `src/generators.js`
 
 - 把同一个题目模板映射成问卷星和腾讯问卷文本。
-- 同时生成 `ImageUploadTask[]`，但不上传图片。
+- 输出展开后的题目和平台文本；当前阶段不生成没有真实平台消费者的上传任务。
 - 未经实际验证的题型组合必须报错，不能静默降级成矩阵或其他题型。
 
 ### `src/app.js`
@@ -161,7 +162,7 @@ ImageUploadTask {
 
 ### `src/platform-adapters/`
 
-- 浏览器辅助层的平台适配器。
+- 后续真实页面阶段才创建的浏览器辅助层平台适配器；当前基础阶段不创建该目录。
 - 每个适配器只负责发现题目、核对任务、打开图片入口、上传和确认结果。
 - 适配器没有发布问卷的能力。
 
@@ -173,8 +174,8 @@ ImageUploadTask {
 2. 题目页改为自由模板编辑器，并移植 Bangumi 官方控件 CSS。
 3. 加入 IndexedDB 共享项目和 `images.html` 空间，完成两页互通。
 4. 接入 yuc.wiki 视觉图与资料卡获取、Chromium 渲染。
-5. 生成图片上传任务清单。
-6. 在问卷星正式编辑页实现并实测逐题图片上传；全程禁止发布。
+5. 在问卷星正式编辑页发现并实测题目图片入口；全程禁止发布。
+6. 真实上传链路成立后，再生成图片上传任务清单并实现适配器。
 7. 实测腾讯问卷图片入口后实现对应适配器。
 
 每一步通过测试和人工检查后单独提交，不等待整个项目一次完成。
@@ -186,8 +187,8 @@ ImageUploadTask {
 3. 两个页面共享动画、顺序、图片和当前项目；刷新后数据仍存在。
 4. yuc.wiki 视觉图和横向资料卡均可保存为动画资源。
 5. 文本输出不包含多余空行、尾空格或未经验证的题型标签。
-6. 导入文本不会声称携带图片；图片上传任务与文本输出同时可检查。
-7. 问卷星上传适配器在题目不匹配时零上传，在匹配时逐题上传正确图片，并且没有发布路径。
+6. 导入文本不会声称携带图片；在真实上传适配器完成前，页面不提供虚假的平台补图功能或无消费者的任务清单。
+7. 后续问卷星上传适配器只有经过真实页面验证才算完成：题目不匹配时零上传，匹配时逐题上传正确图片，并且没有发布路径。
 8. 界面控件规则来自 Bangumi 官方前端源文件，来源和许可证可追溯。
 9. 320、375、414、768 像素宽度无横向滚动，主要触控目标可正常使用。
 10. 不删除既有问卷实测记录、YUC 证据图片和历史提交。
