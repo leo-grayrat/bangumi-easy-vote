@@ -1,0 +1,9 @@
+{
+  "name": "bangumi-easy-vote",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "dev": "node scripts/serve.mjs"
+  }
+}
