@@ -125,6 +125,7 @@ export function normalizeProjectRecord(record = {}) {
   const template = record?.questionTemplate ?? LEGACY_TEMPLATES[record?.template];
 
   return {
+    id: String(record?.id ?? ''),
     version: 2,
     title: String(record?.title ?? ''),
     description: String(record?.description ?? ''),

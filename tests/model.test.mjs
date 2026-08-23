@@ -69,7 +69,8 @@ test('question templates interpolate per-anime prompts and one-based indices', (
 });
 
 test('normalizeProjectRecord migrates a legacy vote project to a version 2 question template', () => {
-  const project = normalizeProjectRecord({
+  const legacyJson = JSON.stringify({
+    id: 'project-summer-2026',
     version: 1,
     title: '七月新番投票',
     description: '请选择最期待的作品',
@@ -81,6 +82,9 @@ test('normalizeProjectRecord migrates a legacy vote project to a version 2 quest
     ],
   });
 
+  const project = normalizeProjectRecord(JSON.parse(legacyJson));
+
+  assert.equal(project.id, 'project-summer-2026');
   assert.equal(project.version, 2);
   assert.equal(project.template, undefined);
   assert.deepEqual(project.questionTemplate, {
