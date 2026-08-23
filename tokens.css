@@ -6,8 +6,8 @@
   --color-paper-3: oklch(90% 0.024 95);
   --color-surface: oklch(99% 0.008 95);
   --color-ink: oklch(20% 0.012 250);
-  --color-ink-soft: oklch(36% 0.014 250);
-  --color-muted: oklch(43% 0.012 250);
+  --color-ink-soft: oklch(31% 0.014 250);
+  --color-muted: oklch(36% 0.012 250);
   --color-rule: oklch(79% 0.018 95);
   --color-rule-strong: oklch(60% 0.024 95);
   --color-accent: oklch(86% 0.18 95);
