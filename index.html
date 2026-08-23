@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta
+      name="description"
+      content="把一批动画标题或视觉图整理成问卷星、腾讯问卷可导入文本。"
+    />
+    <title>番组投票台</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="tokens.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="wordmark" href="#main">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>番组投票台</span>
+      </a>
+      <button class="button button--soft" id="clear-entries" type="button" disabled>
+        清空条目
+      </button>
+    </header>
+
+    <main class="shell" id="main" data-app>
+      <header class="intro">
+        <div>
+          <p class="kicker">本地问卷编辑器</p>
+          <h1>把动画名单变成能导入的题目。</h1>
+        </div>
+        <p class="intro__note">
+          批量加入标题或视觉图，选一种投票范式，再复制到问卷星或腾讯问卷。图片只留在当前页面。
+        </p>
+      </header>
+
+      <div class="workbench">
+        <section class="editor-panel" aria-labelledby="editor-title">
+          <div class="section-heading">
+            <div>
+              <h2 id="editor-title">编辑动画条目</h2>
+              <p>标题和图片按当前顺序生成题目。</p>
+            </div>
+            <output class="count-badge" id="entry-count">0 部动画</output>
+          </div>
+
+          <div class="project-fields">
+            <label class="field">
+              <span>问卷标题</span>
+              <input id="project-title" type="text" value="2026 年 7 月新番投票" />
+              <small>会成为导入文本的第一行。</small>
+            </label>
+            <label class="field">
+              <span>问卷说明</span>
+              <textarea id="project-description" rows="3">请选择符合你真实想法的选项。</textarea>
+              <small>问卷星会生成段落说明；腾讯问卷会放在欢迎语位置。</small>
+            </label>
+          </div>
+
+          <div class="batch-inputs">
+            <div class="batch-block batch-block--titles">
+              <label class="field" for="bulk-titles">
+                <span>批量粘贴标题</span>
+                <textarea
+                  id="bulk-titles"
+                  rows="5"
+                  placeholder="世界舞动&#10;相反的你和我 第2期&#10;胆大党 第2期"
+                ></textarea>
+              </label>
+              <button class="button button--ink" id="add-titles" type="button">加入标题</button>
+            </div>
+
+            <div class="batch-block batch-block--images">
+              <div>
+                <p class="field-label">批量选择视觉图</p>
+                <p class="batch-block__copy">文件名会去掉最后一个扩展名，作为初始动画标题。</p>
+              </div>
+              <label class="button button--cyan file-button" for="image-files">
+                选择多张图片
+              </label>
+              <input id="image-files" type="file" accept="image/*" multiple />
+            </div>
+          </div>
+
+          <div class="entry-list" id="entry-list" aria-live="polite">
+            <div class="empty-state" id="empty-state">
+              <span class="empty-state__mark" aria-hidden="true"></span>
+              <div>
+                <strong>还没有动画条目。</strong>
+                <p>在上方粘贴标题，或一次选择多张视觉图。</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="output-panel" aria-labelledby="output-title">
+          <div class="output-panel__sticky">
+            <section class="choice-section" aria-labelledby="platform-title">
+              <div class="section-heading section-heading--compact">
+                <div>
+                  <h2 id="platform-title">目标平台</h2>
+                  <p>平台差异由生成器处理。</p>
+                </div>
+              </div>
+              <div class="segmented" role="radiogroup" aria-label="目标平台">
+                <label>
+                  <input type="radio" name="platform" value="wjx" checked />
+                  <span>问卷星</span>
+                </label>
+                <label>
+                  <input type="radio" name="platform" value="tencent" />
+                  <span>腾讯问卷</span>
+                </label>
+              </div>
+            </section>
+
+            <section class="choice-section" aria-labelledby="template-title">
+              <div class="section-heading section-heading--compact">
+                <div>
+                  <h2 id="template-title">题目范式</h2>
+                  <p>不用自己选择平台题型。</p>
+                </div>
+              </div>
+              <div class="template-list" role="radiogroup" aria-label="题目范式">
+                <label class="template-choice">
+                  <input type="radio" name="template" value="vote" checked />
+                  <span><strong>季度最期待</strong><small>全部动画生成一道单选题</small></span>
+                </label>
+                <label class="template-choice">
+                  <input type="radio" name="template" value="score" />
+                  <span><strong>逐部评分</strong><small>问卷星矩阵；腾讯逐部量表</small></span>
+                </label>
+                <label class="template-choice">
+                  <input type="radio" name="template" value="status" />
+                  <span><strong>追番状态</strong><small>必追、观望、不追、尚未决定</small></span>
+                </label>
+              </div>
+            </section>
+
+            <section class="preview-section" aria-labelledby="output-title">
+              <div class="section-heading section-heading--compact">
+                <div>
+                  <h2 id="output-title">导入文本</h2>
+                  <p id="question-summary">加入动画后显示预计题目数。</p>
+                </div>
+              </div>
+
+              <div class="diagnostics" id="diagnostics" aria-live="polite"></div>
+
+              <label class="field" for="generated-text">
+                <span>生成结果</span>
+                <textarea id="generated-text" rows="15" readonly></textarea>
+              </label>
+
+              <div class="export-actions">
+                <button class="button button--primary" id="copy-text" type="button" disabled>
+                  <span>复制导入文本</span>
+                </button>
+                <button class="button button--soft" id="download-text" type="button" disabled>
+                  下载 TXT
+                </button>
+                <button class="button button--soft" id="download-project" type="button" disabled>
+                  下载项目 JSON
+                </button>
+              </div>
+            </section>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <p>图片留在本地，文本交给平台。</p>
+      <div>
+        <span>首版不会自动上传图片或发布问卷</span>
+        <a href="form-import-findings.md">查看实测规则</a>
+      </div>
+    </footer>
+
+    <aside class="undo-bar" id="undo-bar" hidden>
+      <span id="undo-message"></span>
+      <button class="button button--soft" id="undo-action" type="button">撤销</button>
+    </aside>
+
+    <script type="module" src="src/app.js"></script>
+  </body>
+</html>
