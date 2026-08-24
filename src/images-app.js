@@ -1,5 +1,6 @@
 import { assignImageAsset } from './model.js';
 import { createProjectChannel, openProjectStore } from './project-store.js';
+import { readYucImportResponse } from './yuc-import.js';
 
 const RECENT_PROJECT_KEY = 'bangumi-easy-vote:recent-project';
 const YUC_SOURCE_KEY = 'bangumi-easy-vote:yuc-source-url';
@@ -144,10 +145,7 @@ async function importYucImages() {
         entries: project.entries.map((entry) => ({ entryId: entry.id, title: entry.title })),
       }),
     });
-    const payload = await response.json();
-    if (!response.ok) {
-      throw new Error(payload.error || `获取失败：HTTP ${response.status}`);
-    }
+    const payload = await readYucImportResponse(response);
 
     const entriesById = new Map(project.entries.map((entry) => [entry.id, entry]));
     const oldAssetIds = [];
