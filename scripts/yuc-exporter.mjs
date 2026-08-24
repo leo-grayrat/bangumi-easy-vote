@@ -400,7 +400,7 @@ function publicExportPath(season, filename) {
   return `/exports/${encodeURIComponent(season)}/${encodeURIComponent(filename)}`;
 }
 
-export async function exportYucAssets({ rootDirectory, sourceUrl, entries }) {
+export async function exportYucAssets({ rootDirectory, sourceUrl, entries, onProgress = async () => {} }) {
   const url = validateYucUrl(sourceUrl);
   const response = await fetch(url, {
     headers: { 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140 Safari/537.36' },
@@ -420,6 +420,12 @@ export async function exportYucAssets({ rootDirectory, sourceUrl, entries }) {
     match: matchCatalogEntry(catalog, entry.title),
   }));
   const matched = prepared.filter((entry) => entry.match);
+  await onProgress({
+    type: 'catalog',
+    total: prepared.length,
+    catalogSize: catalog.length,
+    matchedCount: matched.length,
+  });
   let chrome;
 
   if (matched.length > 0) {
@@ -429,9 +435,19 @@ export async function exportYucAssets({ rootDirectory, sourceUrl, entries }) {
 
   try {
     const results = [];
-    for (const entry of prepared) {
+    for (const [position, entry] of prepared.entries()) {
+      await onProgress({
+        type: 'entry-start',
+        entryId: entry.entryId,
+        title: entry.title,
+        index: position + 1,
+        total: prepared.length,
+        matchedTitle: entry.match?.title ?? null,
+      });
       if (!entry.match) {
-        results.push({ entryId: entry.entryId, requestedTitle: entry.title, status: 'not-found' });
+        const result = { entryId: entry.entryId, requestedTitle: entry.title, status: 'not-found' };
+        results.push(result);
+        await onProgress({ type: 'entry-result', index: position + 1, total: prepared.length, result });
         continue;
       }
 
@@ -443,7 +459,7 @@ export async function exportYucAssets({ rootDirectory, sourceUrl, entries }) {
         const card = await captureDetailCard(chrome.client, entry.match.title);
         await writeFile(path.join(outputDirectory, visualFilename), visual.buffer);
         await writeFile(path.join(outputDirectory, cardFilename), card);
-        results.push({
+        const result = {
           entryId: entry.entryId,
           requestedTitle: entry.title,
           matchedTitle: entry.match.title,
@@ -456,15 +472,19 @@ export async function exportYucAssets({ rootDirectory, sourceUrl, entries }) {
             filename: cardFilename,
             url: publicExportPath(season, cardFilename),
           },
-        });
+        };
+        results.push(result);
+        await onProgress({ type: 'entry-result', index: position + 1, total: prepared.length, result });
       } catch (error) {
-        results.push({
+        const result = {
           entryId: entry.entryId,
           requestedTitle: entry.title,
           matchedTitle: entry.match.title,
           status: 'error',
           message: error.message,
-        });
+        };
+        results.push(result);
+        await onProgress({ type: 'entry-result', index: position + 1, total: prepared.length, result });
       }
     }
 

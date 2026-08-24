@@ -16,3 +16,35 @@ export async function readYucImportResponse(response) {
   }
   return payload;
 }
+
+export async function readYucImportEvents(response, onEvent) {
+  if (!response.ok) {
+    await readYucImportResponse(response);
+    return;
+  }
+  if (!response.body) {
+    throw new Error('浏览器无法读取导出进度。');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  const emitLines = async (flush = false) => {
+    const lines = buffer.split('\n');
+    buffer = flush ? '' : lines.pop();
+    for (const line of lines) {
+      if (line.trim()) await onEvent(JSON.parse(line));
+    }
+    if (flush && buffer.trim()) await onEvent(JSON.parse(buffer));
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    await emitLines();
+  }
+  buffer += decoder.decode();
+  await emitLines(true);
+}

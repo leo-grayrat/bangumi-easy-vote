@@ -390,6 +390,40 @@ h2 {
   font-size: 13px;
 }
 
+.yuc-import__progress {
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  accent-color: #f09199;
+}
+
+.yuc-import__progress::-webkit-progress-bar {
+  border-radius: 999px;
+  background: #e8e3e3;
+}
+
+.yuc-import__progress::-webkit-progress-value {
+  border-radius: 999px;
+  background: #f09199;
+}
+
+.yuc-import__progress::-moz-progress-bar {
+  border-radius: 999px;
+  background: #f09199;
+}
+
+.yuc-import__summary {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fff;
+  color: #595555;
+  font-weight: 600;
+}
+
 .yuc-import__controls {
   display: flex;
   flex-wrap: wrap;

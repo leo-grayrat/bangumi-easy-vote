@@ -1,6 +1,6 @@
 import { assignImageAsset } from './model.js';
 import { createProjectChannel, openProjectStore } from './project-store.js';
-import { readYucImportResponse } from './yuc-import.js';
+import { readYucImportEvents } from './yuc-import.js';
 
 const RECENT_PROJECT_KEY = 'bangumi-easy-vote:recent-project';
 const YUC_SOURCE_KEY = 'bangumi-easy-vote:yuc-source-url';
@@ -17,6 +17,7 @@ const elements = {
   projectName: document.querySelector('#project-name'),
   saveStatus: document.querySelector('#save-status'),
   workspace: document.querySelector('#image-workspace'),
+  yucFetchProgress: document.querySelector('#yuc-fetch-progress'),
   yucFetchSummary: document.querySelector('#yuc-fetch-summary'),
   yucSourceUrl: document.querySelector('#yuc-source-url'),
 };
@@ -26,6 +27,16 @@ let project;
 let projectChannel;
 const previewUrls = new Set();
 const importStatuses = new Map();
+
+function showImportStatus(entryId, status) {
+  importStatuses.set(entryId, status);
+  const card = elements.entryList.querySelector(`[data-entry-id="${CSS.escape(entryId)}"]`);
+  const statusLine = card?.querySelector('.image-entry-card__status');
+  if (!statusLine) return;
+  statusLine.className = `image-entry-card__status image-entry-card__status--${status.type}`;
+  statusLine.textContent = status.message;
+  statusLine.hidden = false;
+}
 
 function recentProjectId() {
   try {
@@ -131,13 +142,16 @@ async function importYucImages() {
 
   elements.fetchYucImages.disabled = true;
   elements.yucSourceUrl.disabled = true;
+  elements.yucFetchProgress.hidden = false;
+  elements.yucFetchProgress.max = project.entries.length;
+  elements.yucFetchProgress.value = 0;
   elements.yucFetchSummary.textContent = '正在匹配并生成图片，请稍候……';
   setStatus('正在获取 YUC 图片');
   importStatuses.clear();
 
   try {
     localStorage.setItem(YUC_SOURCE_KEY, sourceUrl);
-    const response = await fetch('/api/yuc/import', {
+    const response = await fetch('/api/yuc/import-stream', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -145,54 +159,78 @@ async function importYucImages() {
         entries: project.entries.map((entry) => ({ entryId: entry.id, title: entry.title })),
       }),
     });
-    const payload = await readYucImportResponse(response);
-
     const entriesById = new Map(project.entries.map((entry) => [entry.id, entry]));
-    const oldAssetIds = [];
     let successCount = 0;
     let notFoundCount = 0;
     let errorCount = 0;
+    let completeResult;
 
-    for (const result of payload.results) {
-      const entry = entriesById.get(result.entryId);
-      if (!entry) continue;
-
-      if (result.status === 'not-found') {
-        notFoundCount += 1;
-        importStatuses.set(entry.id, { type: 'warning', message: 'YUC 中没有找到完全匹配的标题' });
-        continue;
+    await readYucImportEvents(response, async (event) => {
+      if (event.type === 'catalog') {
+        elements.yucFetchSummary.textContent = `已读取 YUC 的 ${event.catalogSize} 部动画，其中 ${event.matchedCount} 部标题匹配；正在准备导出。`;
+        return;
       }
-      if (result.status !== 'ok') {
-        errorCount += 1;
-        importStatuses.set(entry.id, { type: 'error', message: result.message || '图片生成失败' });
-        continue;
-      }
-
-      try {
-        const [visual, infoCard] = await Promise.all([
-          fetchImageFile(result.visual),
-          fetchImageFile(result.infoCard),
-        ]);
-        const visualSaved = await storeImageAsset(entry, 'visual', visual);
-        const cardSaved = await storeImageAsset(entry, 'infoCard', infoCard);
-        oldAssetIds.push(visualSaved.oldAssetId, cardSaved.oldAssetId);
-        successCount += 1;
-        importStatuses.set(entry.id, {
-          type: 'success',
-          message: `已匹配“${result.matchedTitle}”并保存两张图片`,
+      if (event.type === 'entry-start') {
+        elements.yucFetchProgress.value = Math.max(0, event.index - 1);
+        elements.yucFetchSummary.textContent = `正在处理 ${event.index}/${event.total}：《${event.title}》`;
+        showImportStatus(event.entryId, {
+          type: event.matchedTitle ? 'warning' : 'error',
+          message: event.matchedTitle
+            ? `已匹配“${event.matchedTitle}”，正在生成视觉图和资料卡……`
+            : `第 ${event.index}/${event.total} 部：YUC 中没有完全匹配的标题`,
         });
-      } catch (error) {
-        errorCount += 1;
-        importStatuses.set(entry.id, { type: 'error', message: error.message });
+        return;
       }
-    }
+      if (event.type === 'entry-result') {
+        elements.yucFetchProgress.value = event.index;
+        const result = event.result;
+        const entry = entriesById.get(result.entryId);
+        if (!entry) return;
 
-    await projectStore.saveProject(project);
-    for (const assetId of oldAssetIds.filter(Boolean)) {
-      await projectStore.deleteAsset(assetId);
-    }
+        if (result.status === 'not-found') {
+          notFoundCount += 1;
+          showImportStatus(entry.id, { type: 'warning', message: '未匹配，已跳过' });
+        } else if (result.status !== 'ok') {
+          errorCount += 1;
+          showImportStatus(entry.id, { type: 'error', message: result.message || '图片生成失败' });
+        } else {
+          try {
+            const [visual, infoCard] = await Promise.all([
+              fetchImageFile(result.visual),
+              fetchImageFile(result.infoCard),
+            ]);
+            const visualSaved = await storeImageAsset(entry, 'visual', visual);
+            const cardSaved = await storeImageAsset(entry, 'infoCard', infoCard);
+            await projectStore.saveProject(project);
+            for (const assetId of [visualSaved.oldAssetId, cardSaved.oldAssetId].filter(Boolean)) {
+              await projectStore.deleteAsset(assetId);
+            }
+            successCount += 1;
+            showImportStatus(entry.id, {
+              type: 'success',
+              message: `已保存两张图片（${successCount} 部成功）`,
+            });
+          } catch (error) {
+            errorCount += 1;
+            showImportStatus(entry.id, { type: 'error', message: `保存失败：${error.message}` });
+          }
+        }
+        elements.yucFetchSummary.textContent = `已处理 ${event.index}/${event.total}：成功 ${successCount}，未匹配 ${notFoundCount}，失败 ${errorCount}`;
+        return;
+      }
+      if (event.type === 'complete') {
+        elements.yucFetchProgress.value = project.entries.length;
+        completeResult = event.result;
+        return;
+      }
+      if (event.type === 'error') {
+        throw new Error(event.message || '导出过程中断。');
+      }
+    });
+
+    if (!completeResult) throw new Error('导出连接提前结束。');
     projectChannel?.post('project-saved');
-    elements.yucFetchSummary.textContent = `完成：成功 ${successCount} 部，未匹配 ${notFoundCount} 部，失败 ${errorCount} 部。原图也已保存到 exports/${payload.season}/。`;
+    elements.yucFetchSummary.textContent = `完成：成功 ${successCount} 部，未匹配 ${notFoundCount} 部，失败 ${errorCount} 部。原图已保存到 exports/${completeResult.season}/。`;
     setStatus('已保存');
     await renderEntries();
   } catch (error) {
@@ -284,6 +322,7 @@ async function makeImageSlot(entry, kind) {
 async function makeEntryCard(entry, index) {
   const card = document.createElement('article');
   card.className = 'image-entry-card';
+  card.dataset.entryId = entry.id;
 
   const title = document.createElement('h2');
   title.className = 'image-entry-card__title';

@@ -25,3 +25,26 @@ test('a successful YUC response returns its JSON payload', async () => {
     payload,
   );
 });
+
+test('stream reader emits complete progress records across split network chunks', async () => {
+  assert.equal(typeof yucImport.readYucImportEvents, 'function');
+  const encoder = new TextEncoder();
+  const response = new Response(
+    new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode('{"type":"entry-start","index":1'));
+        controller.enqueue(encoder.encode('}\n{"type":"entry-result","index":1}\n'));
+        controller.close();
+      },
+    }),
+    { status: 200, headers: { 'content-type': 'application/x-ndjson' } },
+  );
+  const events = [];
+
+  await yucImport.readYucImportEvents(response, (event) => events.push(event));
+
+  assert.deepEqual(events, [
+    { type: 'entry-start', index: 1 },
+    { type: 'entry-result', index: 1 },
+  ]);
+});

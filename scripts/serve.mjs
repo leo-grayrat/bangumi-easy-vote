@@ -111,6 +111,24 @@ function sendJson(response, statusCode, value) {
   response.end(JSON.stringify(value));
 }
 
+function normalizeImportEntries(body) {
+  if (!Array.isArray(body.entries) || body.entries.length === 0) {
+    throw new Error('当前项目没有可匹配的动画。');
+  }
+  const entries = body.entries.map((entry) => ({
+    entryId: String(entry?.entryId ?? '').trim(),
+    title: String(entry?.title ?? '').trim(),
+  }));
+  if (entries.some((entry) => !entry.entryId || !entry.title)) {
+    throw new Error('动画条目缺少标题或标识。');
+  }
+  return entries;
+}
+
+function writeNdjson(response, event) {
+  response.write(`${JSON.stringify(event)}\n`);
+}
+
 export function startServer({
   rootDirectory = process.cwd(),
   host = '127.0.0.1',
@@ -120,19 +138,38 @@ export function startServer({
   const server = createServer(async (request, response) => {
     const requestPath = String(request.url ?? '').split(/[?#]/, 1)[0];
 
+    if (request.method === 'POST' && requestPath === '/api/yuc/import-stream') {
+      try {
+        const body = await readJsonBody(request);
+        const entries = normalizeImportEntries(body);
+        response.writeHead(200, {
+          'content-type': 'application/x-ndjson; charset=utf-8',
+          'cache-control': 'no-store',
+          'x-content-type-options': 'nosniff',
+        });
+        const result = await yucExporter({
+          rootDirectory,
+          sourceUrl: body.sourceUrl,
+          entries,
+          onProgress: async (event) => writeNdjson(response, event),
+        });
+        writeNdjson(response, { type: 'complete', result });
+        response.end();
+      } catch (error) {
+        if (!response.headersSent) {
+          sendJson(response, 500, { error: error.message });
+        } else {
+          writeNdjson(response, { type: 'error', message: error.message });
+          response.end();
+        }
+      }
+      return;
+    }
+
     if (request.method === 'POST' && requestPath === '/api/yuc/import') {
       try {
         const body = await readJsonBody(request);
-        if (!Array.isArray(body.entries) || body.entries.length === 0) {
-          throw new Error('当前项目没有可匹配的动画。');
-        }
-        const entries = body.entries.map((entry) => ({
-          entryId: String(entry?.entryId ?? '').trim(),
-          title: String(entry?.title ?? '').trim(),
-        }));
-        if (entries.some((entry) => !entry.entryId || !entry.title)) {
-          throw new Error('动画条目缺少标题或标识。');
-        }
+        const entries = normalizeImportEntries(body);
 
         const result = await yucExporter({
           rootDirectory,
