@@ -1,194 +1,340 @@
 import {
   createEntry,
-  deriveTitleFromFilename,
-  serializeProject,
+  createQuestionTemplate,
   titlesFromText,
   validateProject,
 } from './model.js';
-import { generateImportText } from './generators.js';
+import { expandQuestions, generateImportText } from './generators.js';
+import { openProjectStore } from './project-store.js';
+
+const RECENT_PROJECT_KEY = 'bangumi-easy-vote:recent-project';
+const SAVE_DELAY_MS = 250;
 
 const elements = {
   addTitles: document.querySelector('#add-titles'),
   bulkTitles: document.querySelector('#bulk-titles'),
   clearEntries: document.querySelector('#clear-entries'),
   copyText: document.querySelector('#copy-text'),
-  description: document.querySelector('#project-description'),
-  diagnostics: document.querySelector('#diagnostics'),
-  downloadProject: document.querySelector('#download-project'),
   downloadText: document.querySelector('#download-text'),
-  emptyState: document.querySelector('#empty-state'),
+  editorWorkspace: document.querySelector('#editor-workspace'),
+  entriesMessage: document.querySelector('#entries-message'),
   entryCount: document.querySelector('#entry-count'),
   entryList: document.querySelector('#entry-list'),
+  expansion: document.querySelector('#expansion-mode'),
+  expansionLabel: document.querySelector('#expansion-label'),
+  expansionMessage: document.querySelector('#expansion-message'),
   generatedText: document.querySelector('#generated-text'),
-  imageFiles: document.querySelector('#image-files'),
-  platformInputs: [...document.querySelectorAll('input[name="platform"]')],
-  questionSummary: document.querySelector('#question-summary'),
-  templateInputs: [...document.querySelectorAll('input[name="template"]')],
-  title: document.querySelector('#project-title'),
-  undoAction: document.querySelector('#undo-action'),
-  undoBar: document.querySelector('#undo-bar'),
-  undoMessage: document.querySelector('#undo-message'),
+  loadError: document.querySelector('#load-error'),
+  options: document.querySelector('#question-options'),
+  optionsField: document.querySelector('#question-options-field'),
+  optionsMessage: document.querySelector('#question-options-message'),
+  outputMessage: document.querySelector('#output-message'),
+  platform: document.querySelector('#platform'),
+  platformLabel: document.querySelector('#platform-label'),
+  platformMessage: document.querySelector('#platform-message'),
+  preview: document.querySelector('#question-preview'),
+  projectDescription: document.querySelector('#project-description'),
+  projectDescriptionMessage: document.querySelector('#project-description-message'),
+  projectTitle: document.querySelector('#project-title'),
+  projectTitleMessage: document.querySelector('#project-title-message'),
+  prompt: document.querySelector('#question-prompt'),
+  promptMessage: document.querySelector('#question-prompt-message'),
+  questionCount: document.querySelector('#question-count'),
+  questionType: document.querySelector('#question-type'),
+  questionTypeLabel: document.querySelector('#question-type-label'),
+  questionTypeMessage: document.querySelector('#question-type-message'),
+  saveStatus: document.querySelector('#save-status'),
+  scaleFields: document.querySelector('#scale-fields'),
+  scaleMax: document.querySelector('#scale-max'),
+  scaleMaxLabel: document.querySelector('#scale-max-label'),
+  scaleMessage: document.querySelector('#scale-message'),
+  scaleMin: document.querySelector('#scale-min'),
+  scaleMinLabel: document.querySelector('#scale-min-label'),
 };
 
-const state = {
-  title: elements.title.value,
-  description: elements.description.value,
-  platform: 'wjx',
-  template: 'vote',
-  entries: [],
-  notice: null,
+const messageElements = {
+  entries: elements.entriesMessage,
+  expansion: elements.expansionMessage,
+  options: elements.optionsMessage,
+  output: elements.outputMessage,
+  platform: elements.platformMessage,
+  prompt: elements.promptMessage,
+  scale: elements.scaleMessage,
+  title: elements.projectTitleMessage,
+  type: elements.questionTypeMessage,
 };
 
+let projectStore;
+let state;
 let generatedText = '';
-let undoRecord = null;
-let undoTimer = null;
+let saveTimer = null;
+let editRevision = 0;
 let copyResetTimer = null;
+let entryActionError = '';
 
-function currentProject() {
+function createProjectId() {
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `project-${Date.now().toString(36)}`;
+}
+
+function createFreshProject(id) {
   return {
-    title: state.title,
-    description: state.description,
-    platform: state.platform,
-    template: state.template,
-    entries: state.entries,
+    id,
+    version: 2,
+    title: '动画投票',
+    description: '',
+    platform: 'wjx',
+    questionTemplate: createQuestionTemplate(),
+    entries: [],
   };
 }
 
-function releaseEntry(entry) {
-  if (entry?.imageUrl?.startsWith('blob:')) {
-    URL.revokeObjectURL(entry.imageUrl);
+function recentProjectId() {
+  try {
+    return localStorage.getItem(RECENT_PROJECT_KEY)?.trim() || '';
+  } catch {
+    return '';
   }
 }
 
-function releaseEntries(entries) {
-  entries.forEach(releaseEntry);
-}
-
-function hideUndo({ discard = true } = {}) {
-  if (undoTimer) {
-    window.clearTimeout(undoTimer);
-    undoTimer = null;
+function rememberProjectId(id) {
+  try {
+    localStorage.setItem(RECENT_PROJECT_KEY, id);
+  } catch {
+    // IndexedDB remains the source of truth when localStorage is unavailable.
   }
+}
 
-  if (discard && undoRecord?.discard) {
-    undoRecord.discard();
+function ensureProjectInUrl(id) {
+  const url = new URL(window.location.href);
+  if (url.searchParams.get('project') !== id) {
+    url.searchParams.set('project', id);
+    window.history.replaceState(null, '', url);
   }
-
-  undoRecord = null;
-  elements.undoBar.hidden = true;
 }
 
-function showUndo(message, restore, discard) {
-  hideUndo();
-  undoRecord = { restore, discard };
-  elements.undoMessage.textContent = message;
-  elements.undoBar.hidden = false;
-  undoTimer = window.setTimeout(() => hideUndo(), 8000);
+function selectedLabel(select) {
+  return select.selectedOptions[0]?.textContent ?? '';
 }
 
-function setNotice(tone, message) {
-  state.notice = { tone, message };
+function optionsFromText(text) {
+  return titlesFromText(text);
 }
 
-function makeDiagnostic(tone, message) {
-  const item = document.createElement('div');
-  item.className = `diagnostic diagnostic--${tone}`;
-  item.textContent = message;
-  return item;
-}
-
-function expectedQuestionCount() {
-  if (state.entries.length === 0) {
-    return 0;
-  }
-
-  if (state.platform === 'wjx' || state.template === 'vote') {
-    return 1;
-  }
-
-  return state.entries.length;
-}
-
-function renderDiagnostics(validation) {
-  elements.diagnostics.replaceChildren();
-
-  if (state.notice) {
-    elements.diagnostics.append(makeDiagnostic(state.notice.tone, state.notice.message));
-  }
-
-  validation.errors.forEach((item) => {
-    elements.diagnostics.append(makeDiagnostic('error', item.message));
+function syncEntryOrder() {
+  state.entries.forEach((entry, index) => {
+    entry.order = index;
   });
-  validation.warnings.forEach((item) => {
-    elements.diagnostics.append(makeDiagnostic('warning', item.message));
-  });
+}
 
-  elements.diagnostics.append(
-    makeDiagnostic('info', '文本导入不会把本地图片上传到问卷平台。'),
+function setSaveStatus(message) {
+  elements.saveStatus.textContent = message;
+}
+
+async function persistProject(revision) {
+  setSaveStatus('正在保存');
+  try {
+    await projectStore.saveProject(state);
+    rememberProjectId(state.id);
+    setSaveStatus(revision === editRevision ? '已保存' : '有未保存更改');
+  } catch (error) {
+    setSaveStatus(`保存失败：${error.message}`);
+  }
+}
+
+function scheduleSave() {
+  editRevision += 1;
+  const revision = editRevision;
+  setSaveStatus('有未保存更改');
+  if (saveTimer) {
+    window.clearTimeout(saveTimer);
+  }
+  saveTimer = window.setTimeout(() => {
+    saveTimer = null;
+    void persistProject(revision);
+  }, SAVE_DELAY_MS);
+}
+
+function flushPendingSave() {
+  if (!saveTimer) {
+    return;
+  }
+
+  window.clearTimeout(saveTimer);
+  saveTimer = null;
+  void persistProject(editRevision);
+}
+
+function issueTarget(issue) {
+  switch (issue.code) {
+    case 'blank-project-title':
+      return 'title';
+    case 'unsupported-platform':
+      return 'platform';
+    case 'unsupported-expansion-mode':
+      return 'expansion';
+    case 'unsupported-question-type':
+    case 'invalid-aggregate-question-type':
+      return 'type';
+    case 'too-few-options':
+      return 'options';
+    case 'invalid-scale-range':
+      return 'scale';
+    case 'invalid-placeholder-syntax':
+    case 'unknown-placeholder':
+    case 'placeholder-not-available':
+    case 'prompt-without-title':
+      return 'prompt';
+    case 'no-entries':
+    case 'blank-title':
+    case 'duplicate-title':
+    case 'mixed-image-coverage':
+      return 'entries';
+    default:
+      return 'output';
+  }
+}
+
+function setFieldMessage(element, errors, warnings) {
+  const messages = errors.length > 0 ? errors : warnings;
+  element.textContent = messages.join('\n');
+  element.classList.toggle('field-message--warning', errors.length === 0 && warnings.length > 0);
+}
+
+function resetInvalidState() {
+  const controls = [
+    elements.projectTitle,
+    elements.platform,
+    elements.expansion,
+    elements.questionType,
+    elements.prompt,
+    elements.options,
+    elements.scaleMin,
+    elements.scaleMax,
+    elements.scaleMinLabel,
+    elements.scaleMaxLabel,
+    ...elements.entryList.querySelectorAll('.entry-row .bgm-input'),
+  ];
+  controls.forEach((control) => control.setAttribute('aria-invalid', 'false'));
+}
+
+function markTargetInvalid(target, issue) {
+  const controlsByTarget = {
+    entries: issue.entryId
+      ? [elements.entryList.querySelector(`[data-entry-id="${CSS.escape(issue.entryId)}"] .bgm-input`)]
+      : [...elements.entryList.querySelectorAll('.entry-row .bgm-input')],
+    expansion: [elements.expansion],
+    options: [elements.options],
+    platform: [elements.platform],
+    prompt: [elements.prompt],
+    scale: [elements.scaleMin, elements.scaleMax, elements.scaleMinLabel, elements.scaleMaxLabel],
+    title: [elements.projectTitle],
+    type: [elements.questionType],
+  };
+
+  (controlsByTarget[target] ?? []).filter(Boolean).forEach((control) => {
+    control.setAttribute('aria-invalid', 'true');
+  });
+}
+
+function renderValidation(validation, generatorError) {
+  const grouped = new Map(
+    Object.keys(messageElements).map((key) => [key, { errors: [], warnings: [] }]),
   );
 
-  if (state.entries.some((entry) => entry.imageName)) {
-    elements.diagnostics.append(
-      makeDiagnostic('info', '下载项目 JSON 可以保留图片文件名与题目的对应顺序。'),
-    );
+  resetInvalidState();
+  validation.errors.forEach((issue) => {
+    const target = issueTarget(issue);
+    grouped.get(target).errors.push(issue.message);
+    markTargetInvalid(target, issue);
+  });
+  validation.warnings.forEach((issue) => {
+    grouped.get(issueTarget(issue)).warnings.push(issue.message);
+  });
+
+  if (entryActionError) {
+    grouped.get('entries').errors.unshift(entryActionError);
+  }
+  if (generatorError) {
+    grouped.get('output').errors.push(generatorError);
+  }
+
+  for (const [target, messages] of grouped) {
+    setFieldMessage(messageElements[target], messages.errors, messages.warnings);
   }
 }
 
-function updateGeneratedOutput() {
-  const project = currentProject();
-  const validation = validateProject(project);
-  const hasErrors = validation.errors.length > 0;
+function questionTypeName(type) {
+  const names = {
+    dropdown: '下拉题',
+    longText: '多行文本题',
+    multiple: '多选题',
+    scale: '量表题',
+    shortText: '单行文本题',
+    single: '单选题',
+  };
+  return names[type] ?? type;
+}
 
-  generatedText = '';
-  if (!hasErrors) {
+function questionMeta(question) {
+  if (question.type === 'scale') {
+    return `${questionTypeName(question.type)} · ${question.scale.min}–${question.scale.max}`;
+  }
+  if (['single', 'multiple', 'dropdown'].includes(question.type)) {
+    return `${questionTypeName(question.type)} · ${question.options.length} 个选项`;
+  }
+  return questionTypeName(question.type);
+}
+
+function renderQuestionPreview(questions) {
+  elements.preview.replaceChildren();
+  for (const question of questions) {
+    const item = document.createElement('li');
+    item.className = 'question-preview__item';
+
+    const prompt = document.createElement('p');
+    prompt.textContent = question.prompt;
+    const meta = document.createElement('p');
+    meta.className = 'question-preview__meta';
+    meta.textContent = questionMeta(question);
+
+    item.append(prompt, meta);
+    elements.preview.append(item);
+  }
+  elements.questionCount.textContent = `${questions.length} 道题`;
+}
+
+function renderOutput() {
+  const validation = validateProject(state);
+  let questions = [];
+  let nextText = '';
+  let generatorError = '';
+
+  if (validation.errors.length === 0) {
     try {
-      generatedText = generateImportText(project);
+      questions = expandQuestions(state);
+      nextText = generateImportText(state);
     } catch (error) {
-      validation.errors.push({ code: 'generator-error', message: error.message });
+      generatorError = error.message;
     }
   }
 
-  const blocked = validation.errors.length > 0;
-  elements.generatedText.value = blocked ? '' : generatedText;
+  generatedText = generatorError ? '' : nextText;
+  elements.generatedText.value = generatedText;
+  const blocked = validation.errors.length > 0 || Boolean(generatorError) || !generatedText;
   elements.generatedText.setAttribute('aria-invalid', String(blocked));
   elements.copyText.disabled = blocked;
   elements.downloadText.disabled = blocked;
-  elements.downloadProject.disabled = blocked;
-  elements.clearEntries.disabled = state.entries.length === 0;
-
-  const count = expectedQuestionCount();
-  elements.questionSummary.textContent = count
-    ? `预计生成 ${count} 道题；导入前仍应检查平台右侧预览。`
-    : '加入动画后显示预计题目数。';
-
-  renderDiagnostics(validation);
-}
-
-function makeEntryVisual(entry, index) {
-  const visual = document.createElement('div');
-  visual.className = 'entry-card__visual';
-
-  if (entry.imageUrl) {
-    const image = document.createElement('img');
-    image.src = entry.imageUrl;
-    image.alt = `${entry.title || '未命名动画'}的本地视觉图`;
-    image.width = 300;
-    image.height = 400;
-    image.loading = index < 2 ? 'eager' : 'lazy';
-    visual.append(image);
-  } else {
-    const placeholder = document.createElement('span');
-    placeholder.className = 'entry-card__placeholder';
-    placeholder.textContent = '无图';
-    visual.append(placeholder);
-  }
-
-  return visual;
+  renderQuestionPreview(questions);
+  renderValidation(validation, generatorError);
 }
 
 function makeEntryButton(label, disabled, onClick) {
   const button = document.createElement('button');
-  button.className = 'entry-action';
+  button.className = 'bgm-button bgm-button--secondary';
   button.type = 'button';
   button.textContent = label;
   button.disabled = disabled;
@@ -197,132 +343,130 @@ function makeEntryButton(label, disabled, onClick) {
 }
 
 function moveEntry(index, offset) {
-  hideUndo();
   const target = index + offset;
   if (target < 0 || target >= state.entries.length) {
     return;
   }
 
   [state.entries[index], state.entries[target]] = [state.entries[target], state.entries[index]];
-  state.notice = null;
+  syncEntryOrder();
+  entryActionError = '';
   renderEntries();
-  updateGeneratedOutput();
+  renderOutput();
+  scheduleSave();
 }
 
 function removeEntry(index) {
-  hideUndo();
-  const [removed] = state.entries.splice(index, 1);
-  state.notice = null;
+  state.entries.splice(index, 1);
+  syncEntryOrder();
+  entryActionError = '';
   renderEntries();
-  updateGeneratedOutput();
-
-  showUndo(
-    `已删除“${removed.title || '未命名动画'}”。`,
-    () => {
-      state.entries.splice(Math.min(index, state.entries.length), 0, removed);
-      renderEntries();
-      updateGeneratedOutput();
-    },
-    () => releaseEntry(removed),
-  );
+  renderOutput();
+  scheduleSave();
 }
 
-function makeEntryCard(entry, index) {
-  const article = document.createElement('article');
-  article.className = 'entry-card';
-  article.dataset.entryId = entry.id;
-  article.append(makeEntryVisual(entry, index));
+function makeEntryRow(entry, index) {
+  const row = document.createElement('article');
+  row.className = 'entry-row';
+  row.dataset.entryId = entry.id;
 
-  const body = document.createElement('div');
-  body.className = 'entry-card__body';
+  const title = document.createElement('div');
+  title.className = 'entry-row__title';
+  const number = document.createElement('span');
+  number.className = 'entry-row__index';
+  number.textContent = `${index + 1}.`;
 
-  const field = document.createElement('label');
-  field.className = 'field';
-  const fieldLabel = document.createElement('span');
-  fieldLabel.textContent = `第 ${index + 1} 部动画`;
+  const wrapper = document.createElement('span');
+  wrapper.className = 'bgm-input__wrapper bgm-input__wrapper--rounded';
   const input = document.createElement('input');
+  input.className = 'bgm-input';
   input.type = 'text';
   input.value = entry.title;
-  input.setAttribute('aria-invalid', String(!entry.title.trim()));
-  input.addEventListener('input', () => {
-    entry.title = input.value;
-    input.setAttribute('aria-invalid', String(!input.value.trim()));
-    state.notice = null;
-    updateGeneratedOutput();
+  input.setAttribute('aria-label', `第 ${index + 1} 部动画标题`);
+  input.addEventListener('input', (event) => {
+    entry.title = event.currentTarget.value;
+    entryActionError = '';
+    renderOutput();
+    scheduleSave();
   });
-  field.append(fieldLabel, input);
-
-  const meta = document.createElement('p');
-  meta.className = 'entry-card__meta';
-  meta.textContent = entry.imageName ? `图片：${entry.imageName}` : '仅标题条目';
+  wrapper.append(input);
+  title.append(number, wrapper);
 
   const actions = document.createElement('div');
-  actions.className = 'entry-card__actions';
+  actions.className = 'entry-row__actions';
   actions.append(
     makeEntryButton('上移', index === 0, () => moveEntry(index, -1)),
     makeEntryButton('下移', index === state.entries.length - 1, () => moveEntry(index, 1)),
     makeEntryButton('删除', false, () => removeEntry(index)),
   );
 
-  body.append(field, meta, actions);
-  article.append(body);
-  return article;
+  row.append(title, actions);
+  return row;
 }
 
 function renderEntries() {
-  const imageCount = state.entries.filter((entry) => entry.imageName).length;
-  elements.entryCount.textContent = imageCount
-    ? `${state.entries.length} 部 · ${imageCount} 张图`
-    : `${state.entries.length} 部动画`;
-
   elements.entryList.replaceChildren();
+  elements.entryCount.textContent = `${state.entries.length} 部`;
+  elements.clearEntries.disabled = state.entries.length === 0;
+
   if (state.entries.length === 0) {
-    elements.entryList.append(elements.emptyState);
+    const empty = document.createElement('p');
+    empty.className = 'entry-empty';
+    empty.textContent = '尚未加入动画标题。';
+    elements.entryList.append(empty);
     return;
   }
 
   state.entries.forEach((entry, index) => {
-    elements.entryList.append(makeEntryCard(entry, index));
+    elements.entryList.append(makeEntryRow(entry, index));
   });
 }
 
-function addTitles() {
-  hideUndo();
-  const titles = titlesFromText(elements.bulkTitles.value);
-  if (titles.length === 0) {
-    setNotice('error', '没有读到有效标题。请确保每行至少有一个可见字符。');
-    updateGeneratedOutput();
-    return;
-  }
-
-  state.entries.push(...titles.map((title) => createEntry({ title })));
-  elements.bulkTitles.value = '';
-  setNotice('info', `已加入 ${titles.length} 个标题。`);
-  renderEntries();
-  updateGeneratedOutput();
+function renderRelevantTemplateFields() {
+  const type = state.questionTemplate.type;
+  const isChoice = ['single', 'multiple', 'dropdown'].includes(type);
+  elements.optionsField.hidden = !isChoice || state.questionTemplate.expansion === 'allAsOptions';
+  elements.scaleFields.hidden = type !== 'scale';
+  elements.expansionLabel.textContent = selectedLabel(elements.expansion);
+  elements.questionTypeLabel.textContent = selectedLabel(elements.questionType);
+  elements.platformLabel.textContent = selectedLabel(elements.platform);
 }
 
-function addImages(files) {
-  hideUndo();
-  const imageFiles = [...files].filter((file) => file.type.startsWith('image/'));
-  if (imageFiles.length === 0) {
-    setNotice('error', '没有读到图片文件。请选择 JPG、PNG、WebP 等图片。');
-    updateGeneratedOutput();
+function renderProject() {
+  elements.projectTitle.value = state.title;
+  elements.projectDescription.value = state.description;
+  elements.platform.value = state.platform;
+  elements.expansion.value = state.questionTemplate.expansion;
+  elements.questionType.value = state.questionTemplate.type;
+  elements.prompt.value = state.questionTemplate.prompt;
+  elements.options.value = state.questionTemplate.options.join('\n');
+  elements.scaleMin.value = state.questionTemplate.scale.min;
+  elements.scaleMax.value = state.questionTemplate.scale.max;
+  elements.scaleMinLabel.value = state.questionTemplate.scale.minLabel;
+  elements.scaleMaxLabel.value = state.questionTemplate.scale.maxLabel;
+
+  renderRelevantTemplateFields();
+  renderEntries();
+  renderOutput();
+}
+
+function addTitles() {
+  const titles = titlesFromText(elements.bulkTitles.value);
+  if (titles.length === 0) {
+    entryActionError = '没有读到有效标题，请每行填写一部动画。';
+    renderOutput();
     return;
   }
 
-  const entries = imageFiles.map((file) =>
-    createEntry({
-      title: deriveTitleFromFilename(file.name),
-      imageName: file.name,
-      imageUrl: URL.createObjectURL(file),
-    }),
+  const startOrder = state.entries.length;
+  state.entries.push(
+    ...titles.map((title, index) => createEntry({ title, order: startOrder + index })),
   );
-  state.entries.push(...entries);
-  elements.imageFiles.value = '';
-  setNotice('info', `已加入 ${entries.length} 张图片，标题来自文件名。`);
+  elements.bulkTitles.value = '';
+  entryActionError = '';
   renderEntries();
-  updateGeneratedOutput();
+  renderOutput();
+  scheduleSave();
 }
 
 function clearEntries() {
@@ -330,130 +474,169 @@ function clearEntries() {
     return;
   }
 
-  hideUndo();
-  const removed = state.entries;
   state.entries = [];
-  state.notice = null;
+  entryActionError = '';
   renderEntries();
-  updateGeneratedOutput();
-
-  showUndo(
-    `已清空 ${removed.length} 个条目。`,
-    () => {
-      state.entries = removed;
-      renderEntries();
-      updateGeneratedOutput();
-    },
-    () => releaseEntries(removed),
-  );
+  renderOutput();
+  scheduleSave();
 }
 
-function safeFilename(extension) {
+function safeFilename() {
   const base = state.title
     .replace(/[\\/:*?"<>|]/g, '-')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 60);
-  return `${base || '动画投票'}.${extension}`;
+  return `${base || '动画投票'}.txt`;
 }
 
-function downloadBlob(content, type, filename) {
-  const url = URL.createObjectURL(new Blob([content], { type }));
+function downloadText() {
+  if (!generatedText) {
+    return;
+  }
+
+  const url = URL.createObjectURL(new Blob([generatedText], { type: 'text/plain;charset=utf-8' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = filename;
+  link.download = safeFilename();
   document.body.append(link);
   link.click();
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-async function copyImportText() {
+async function copyText() {
   if (!generatedText) {
     return;
   }
 
-  elements.copyText.dataset.state = 'loading';
-  elements.copyText.querySelector('span').textContent = '正在复制';
   try {
     await navigator.clipboard.writeText(generatedText);
-    elements.copyText.dataset.state = 'success';
-    elements.copyText.querySelector('span').textContent = '已复制';
+    elements.copyText.textContent = '已复制';
     if (copyResetTimer) {
       window.clearTimeout(copyResetTimer);
     }
     copyResetTimer = window.setTimeout(() => {
-      delete elements.copyText.dataset.state;
-      elements.copyText.querySelector('span').textContent = '复制导入文本';
-    }, 2500);
+      elements.copyText.textContent = '复制文本';
+    }, 2000);
   } catch {
-    elements.copyText.dataset.state = 'error';
-    elements.copyText.querySelector('span').textContent = '复制失败';
-    setNotice('error', '浏览器没有允许读取剪贴板。请选中生成文本后手动复制。');
-    renderDiagnostics(validateProject(currentProject()));
+    elements.outputMessage.textContent = '复制失败，请选中生成文本后手动复制。';
+    elements.outputMessage.classList.remove('field-message--warning');
   }
 }
 
-elements.addTitles.addEventListener('click', addTitles);
-elements.imageFiles.addEventListener('change', (event) => addImages(event.target.files));
-elements.clearEntries.addEventListener('click', clearEntries);
-elements.copyText.addEventListener('click', copyImportText);
-elements.downloadText.addEventListener('click', () => {
-  downloadBlob(generatedText, 'text/plain;charset=utf-8', safeFilename('txt'));
-});
-elements.downloadProject.addEventListener('click', () => {
-  downloadBlob(
-    serializeProject(currentProject()),
-    'application/json;charset=utf-8',
-    safeFilename('json'),
-  );
-});
-
-elements.title.addEventListener('input', (event) => {
-  state.title = event.target.value;
-  state.notice = null;
-  updateGeneratedOutput();
-});
-elements.description.addEventListener('input', (event) => {
-  state.description = event.target.value;
-  state.notice = null;
-  updateGeneratedOutput();
-});
-
-elements.platformInputs.forEach((input) => {
-  input.addEventListener('change', () => {
-    if (input.checked) {
-      state.platform = input.value;
-      state.notice = null;
-      updateGeneratedOutput();
-    }
-  });
-});
-
-elements.templateInputs.forEach((input) => {
-  input.addEventListener('change', () => {
-    if (input.checked) {
-      state.template = input.value;
-      state.notice = null;
-      updateGeneratedOutput();
-    }
-  });
-});
-
-elements.undoAction.addEventListener('click', () => {
-  if (!undoRecord) {
-    return;
+function updateProject(mutator, { renderRelevant = false } = {}) {
+  mutator();
+  entryActionError = '';
+  if (renderRelevant) {
+    renderRelevantTemplateFields();
   }
+  renderOutput();
+  scheduleSave();
+}
 
-  const restore = undoRecord.restore;
-  hideUndo({ discard: false });
-  restore();
-});
+function bindEvents() {
+  elements.addTitles.addEventListener('click', addTitles);
+  elements.clearEntries.addEventListener('click', clearEntries);
+  elements.copyText.addEventListener('click', () => void copyText());
+  elements.downloadText.addEventListener('click', downloadText);
 
-window.addEventListener('beforeunload', () => {
-  releaseEntries(state.entries);
-  hideUndo();
-});
+  elements.projectTitle.addEventListener('input', (event) => {
+    updateProject(() => {
+      state.title = event.currentTarget.value;
+    });
+  });
+  elements.projectDescription.addEventListener('input', (event) => {
+    updateProject(() => {
+      state.description = event.currentTarget.value;
+    });
+  });
+  elements.platform.addEventListener('change', (event) => {
+    updateProject(
+      () => {
+        state.platform = event.currentTarget.value;
+      },
+      { renderRelevant: true },
+    );
+  });
+  elements.expansion.addEventListener('change', (event) => {
+    updateProject(
+      () => {
+        state.questionTemplate.expansion = event.currentTarget.value;
+      },
+      { renderRelevant: true },
+    );
+  });
+  elements.questionType.addEventListener('change', (event) => {
+    updateProject(
+      () => {
+        state.questionTemplate.type = event.currentTarget.value;
+      },
+      { renderRelevant: true },
+    );
+  });
+  elements.prompt.addEventListener('input', (event) => {
+    updateProject(() => {
+      state.questionTemplate.prompt = event.currentTarget.value;
+    });
+  });
+  elements.options.addEventListener('input', (event) => {
+    updateProject(() => {
+      state.questionTemplate.options = optionsFromText(event.currentTarget.value);
+    });
+  });
+  elements.scaleMin.addEventListener('input', (event) => {
+    updateProject(() => {
+      state.questionTemplate.scale.min = Number.parseFloat(event.currentTarget.value);
+    });
+  });
+  elements.scaleMax.addEventListener('input', (event) => {
+    updateProject(() => {
+      state.questionTemplate.scale.max = Number.parseFloat(event.currentTarget.value);
+    });
+  });
+  elements.scaleMinLabel.addEventListener('input', (event) => {
+    updateProject(() => {
+      state.questionTemplate.scale.minLabel = event.currentTarget.value;
+    });
+  });
+  elements.scaleMaxLabel.addEventListener('input', (event) => {
+    updateProject(() => {
+      state.questionTemplate.scale.maxLabel = event.currentTarget.value;
+    });
+  });
 
-renderEntries();
-updateGeneratedOutput();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      flushPendingSave();
+    }
+  });
+  window.addEventListener('beforeunload', flushPendingSave);
+}
+
+async function initialize() {
+  try {
+    projectStore = await openProjectStore();
+    const requestedId = new URLSearchParams(window.location.search).get('project')?.trim() || '';
+    const candidateId = requestedId || recentProjectId();
+    const storedProject = candidateId ? await projectStore.loadProject(candidateId) : null;
+    state = storedProject ?? createFreshProject(candidateId || createProjectId());
+
+    ensureProjectInUrl(state.id);
+    rememberProjectId(state.id);
+    if (!storedProject) {
+      await projectStore.saveProject(state);
+    }
+
+    renderProject();
+    bindEvents();
+    elements.editorWorkspace.hidden = false;
+    setSaveStatus('已保存');
+  } catch (error) {
+    elements.loadError.textContent = `无法打开本地项目：${error.message}`;
+    elements.loadError.hidden = false;
+    setSaveStatus('载入失败');
+  }
+}
+
+void initialize();

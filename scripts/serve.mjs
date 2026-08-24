@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 
 const PUBLIC_ROOT_FILES = new Set([
   'index.html',
-  'tokens.css',
+  'bangumi-components.css',
   'styles.css',
   'form-import-findings.md',
 ]);
