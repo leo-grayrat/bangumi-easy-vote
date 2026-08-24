@@ -1,0 +1,245 @@
+/*
+ * Mechanically translated from Bangumi Frontend commit
+ * b288723022873123cb8c8ccf77c2baf3c98bfb84.
+ * Sources: packages/website/src/index.css and packages/design/components/
+ * Button/index.tsx, Input/index.tsx, Tab/index.tsx, Select/index.tsx,
+ * EditorForm/Editor.tsx. License notice: THIRD_PARTY_NOTICES.md.
+ */
+
+html {
+  font-size: 16px;
+}
+
+body {
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro SC",
+    "SF Pro Display",
+    "PingFang SC",
+    "Microsoft YaHei",
+    "Lucida Grande",
+    "Helvetica Neue",
+    "Segoe UI",
+    Helvetica,
+    Arial,
+    Verdana,
+    sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: inherit;
+}
+
+button {
+  background: white;
+  cursor: pointer;
+}
+
+textarea {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+select {
+  appearance: none;
+}
+
+.bgm-button {
+  --height: 38px;
+  display: flex;
+  box-sizing: border-box;
+  height: var(--height);
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0 32px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  border-radius: calc(var(--height) / 2);
+  cursor: pointer;
+  color: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: var(--height);
+  text-align: center;
+  text-overflow: ellipsis;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.bgm-button--primary {
+  background-color: #f09199;
+  color: #fff;
+}
+
+.bgm-button--primary.bgm-button--color-blue {
+  background-color: #54b5df;
+}
+
+.bgm-button--primary.bgm-button--color-gray {
+  background-color: #e8e3e3;
+  color: #595555;
+}
+
+.bgm-button--secondary {
+  border-color: #e8e3e3;
+  background-color: transparent;
+  color: #9f9b9b;
+}
+
+.bgm-button--secondary:hover {
+  background-color: #e8e3e3;
+  color: #595555;
+}
+
+.bgm-button--secondary.bgm-button--color-blue {
+  border-color: #54b5df;
+  color: #54b5df;
+}
+
+.bgm-button--secondary.bgm-button--color-blue:hover {
+  background-color: #54b5df;
+  color: #fff;
+}
+
+.bgm-button--disabled,
+.bgm-button:disabled {
+  cursor: default;
+}
+
+.bgm-input__wrapper {
+  position: relative;
+  display: inline-flex;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  border: 2px solid #e8e3e3;
+  border-radius: 22px;
+}
+
+.bgm-input__wrapper--rounded {
+  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+}
+
+.bgm-input__wrapper:focus-within,
+.bgm-input__wrapper--focus {
+  border-color: #c8c2c2;
+}
+
+.bgm-input__wrapper--disabled,
+.bgm-input__wrapper--disabled * {
+  cursor: not-allowed;
+  background: #f4f4f5;
+}
+
+.bgm-input {
+  width: 100%;
+  padding: 0;
+  border: none;
+  outline-style: none;
+  color: #1f1c1c;
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.bgm-input::placeholder {
+  color: #e8e3e3;
+}
+
+.bgm-input--align-right {
+  text-align: right;
+}
+
+.bgm-tab {
+  display: inline-flex;
+  width: 100%;
+  flex-direction: row;
+  overflow-x: auto;
+  border-radius: 19px;
+  background-color: #facdd0;
+  list-style: none;
+}
+
+.bgm-tab__item {
+  padding: 4px 6px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  line-height: 14px;
+  white-space: nowrap;
+}
+
+.bgm-tab__item--active {
+  border-radius: 18px;
+  background-color: #f09199;
+}
+
+.bgm-select {
+  position: relative;
+  display: inline-flex;
+  box-sizing: border-box;
+  padding: 0.5rem 1rem;
+  border: 2px solid #e8e3e3;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 1rem;
+  user-select: none;
+  vertical-align: bottom;
+}
+
+.bgm-select select {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+}
+
+.bgm-select__box {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.bgm-select__box span {
+  color: #1f1c1c;
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.bgm-select__arrow {
+  display: inline-block;
+}
+
+.bgm-editor__container {
+  display: inline-flex;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 162px;
+  flex-direction: column;
+  padding: 8px 6px 6px;
+  border: 2px solid #e8e3e3;
+  border-radius: 12px;
+}
+
+.bgm-editor__text {
+  flex: 1 0 auto;
+  padding: 0 6px;
+  border: none;
+  outline: none;
+  color: #1f1c1c;
+  font-size: 16px;
+  line-height: 26px;
+  resize: vertical;
+}
+
+.bgm-editor__text::placeholder {
+  color: #9f9b9b;
+}
