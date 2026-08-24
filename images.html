@@ -35,6 +35,27 @@
         <p class="image-page-note">
           每部动画可以保存一张视觉图和一张资料卡，再选择问卷实际使用哪张。
         </p>
+        <section class="yuc-import" aria-labelledby="yuc-import-heading">
+          <div>
+            <h2 id="yuc-import-heading">从 YUC 获取</h2>
+            <p>按下方项目里的动画名称匹配，一次保存视觉图和横版资料卡。</p>
+          </div>
+          <div class="yuc-import__controls">
+            <label class="bgm-input__wrapper bgm-input__wrapper--rounded" for="yuc-source-url">
+              <input
+                class="bgm-input"
+                id="yuc-source-url"
+                type="url"
+                value="http://yuc.wiki/202607/"
+                aria-label="YUC 季度页面地址"
+              />
+            </label>
+            <button class="bgm-button bgm-button--primary" id="fetch-yuc-images" type="button">
+              按标题获取图片
+            </button>
+          </div>
+          <output class="yuc-import__summary" id="yuc-fetch-summary" aria-live="polite"></output>
+        </section>
         <div class="image-entry-list" id="image-entry-list"></div>
       </section>
     </main>

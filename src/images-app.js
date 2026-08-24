@@ -2,6 +2,7 @@ import { assignImageAsset } from './model.js';
 import { createProjectChannel, openProjectStore } from './project-store.js';
 
 const RECENT_PROJECT_KEY = 'bangumi-easy-vote:recent-project';
+const YUC_SOURCE_KEY = 'bangumi-easy-vote:yuc-source-url';
 const SLOT_LABELS = {
   visual: '视觉图',
   infoCard: '资料卡',
@@ -10,16 +11,20 @@ const SLOT_LABELS = {
 const elements = {
   entryCount: document.querySelector('#image-entry-count'),
   entryList: document.querySelector('#image-entry-list'),
+  fetchYucImages: document.querySelector('#fetch-yuc-images'),
   loadError: document.querySelector('#load-error'),
   projectName: document.querySelector('#project-name'),
   saveStatus: document.querySelector('#save-status'),
   workspace: document.querySelector('#image-workspace'),
+  yucFetchSummary: document.querySelector('#yuc-fetch-summary'),
+  yucSourceUrl: document.querySelector('#yuc-source-url'),
 };
 
 let projectStore;
 let project;
 let projectChannel;
 const previewUrls = new Set();
+const importStatuses = new Map();
 
 function recentProjectId() {
   try {
@@ -54,6 +59,19 @@ async function persistProject() {
   setStatus('已保存');
 }
 
+async function storeImageAsset(entry, kind, { blob, filename, mimeType }) {
+  const oldAssetId = kind === 'visual' ? entry.visualAssetId : entry.infoCardAssetId;
+  const assetId = await projectStore.saveAsset({
+    animeEntryId: entry.id,
+    kind,
+    filename,
+    mimeType,
+    blob,
+  });
+  assignImageAsset(entry, kind, assetId);
+  return { assetId, oldAssetId };
+}
+
 async function selectAsset(entry, kind) {
   const assetId = kind === 'visual' ? entry.visualAssetId : entry.infoCardAssetId;
   if (!assetId || entry.selectedAssetId === assetId) {
@@ -72,16 +90,12 @@ async function saveImage(entry, kind, file) {
     return;
   }
 
-  const oldAssetId = kind === 'visual' ? entry.visualAssetId : entry.infoCardAssetId;
   setStatus('正在保存图片');
-  const assetId = await projectStore.saveAsset({
-    animeEntryId: entry.id,
-    kind,
+  const { assetId, oldAssetId } = await storeImageAsset(entry, kind, {
+    blob: file,
     filename: file.name,
     mimeType: file.type,
-    blob: file,
   });
-  assignImageAsset(entry, kind, assetId);
   await projectStore.saveProject(project);
 
   if (oldAssetId && oldAssetId !== assetId) {
@@ -91,6 +105,105 @@ async function saveImage(entry, kind, file) {
   projectChannel?.post({ type: 'asset-saved', assetId });
   setStatus('已保存');
   await renderEntries();
+}
+
+async function fetchImageFile(asset) {
+  const response = await fetch(asset.url);
+  if (!response.ok) {
+    throw new Error(`图片读取失败：HTTP ${response.status}`);
+  }
+  const blob = await response.blob();
+  if (!blob.type.startsWith('image/')) {
+    throw new Error('服务器返回的不是图片。');
+  }
+  return { blob, filename: asset.filename, mimeType: blob.type };
+}
+
+async function importYucImages() {
+  const sourceUrl = elements.yucSourceUrl.value.trim();
+  if (!sourceUrl || project.entries.length === 0) {
+    elements.yucFetchSummary.textContent = project.entries.length === 0
+      ? '请先在题目页加入动画。'
+      : '请填写 YUC 季度页面地址。';
+    return;
+  }
+
+  elements.fetchYucImages.disabled = true;
+  elements.yucSourceUrl.disabled = true;
+  elements.yucFetchSummary.textContent = '正在匹配并生成图片，请稍候……';
+  setStatus('正在获取 YUC 图片');
+  importStatuses.clear();
+
+  try {
+    localStorage.setItem(YUC_SOURCE_KEY, sourceUrl);
+    const response = await fetch('/api/yuc/import', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        sourceUrl,
+        entries: project.entries.map((entry) => ({ entryId: entry.id, title: entry.title })),
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || `获取失败：HTTP ${response.status}`);
+    }
+
+    const entriesById = new Map(project.entries.map((entry) => [entry.id, entry]));
+    const oldAssetIds = [];
+    let successCount = 0;
+    let notFoundCount = 0;
+    let errorCount = 0;
+
+    for (const result of payload.results) {
+      const entry = entriesById.get(result.entryId);
+      if (!entry) continue;
+
+      if (result.status === 'not-found') {
+        notFoundCount += 1;
+        importStatuses.set(entry.id, { type: 'warning', message: 'YUC 中没有找到完全匹配的标题' });
+        continue;
+      }
+      if (result.status !== 'ok') {
+        errorCount += 1;
+        importStatuses.set(entry.id, { type: 'error', message: result.message || '图片生成失败' });
+        continue;
+      }
+
+      try {
+        const [visual, infoCard] = await Promise.all([
+          fetchImageFile(result.visual),
+          fetchImageFile(result.infoCard),
+        ]);
+        const visualSaved = await storeImageAsset(entry, 'visual', visual);
+        const cardSaved = await storeImageAsset(entry, 'infoCard', infoCard);
+        oldAssetIds.push(visualSaved.oldAssetId, cardSaved.oldAssetId);
+        successCount += 1;
+        importStatuses.set(entry.id, {
+          type: 'success',
+          message: `已匹配“${result.matchedTitle}”并保存两张图片`,
+        });
+      } catch (error) {
+        errorCount += 1;
+        importStatuses.set(entry.id, { type: 'error', message: error.message });
+      }
+    }
+
+    await projectStore.saveProject(project);
+    for (const assetId of oldAssetIds.filter(Boolean)) {
+      await projectStore.deleteAsset(assetId);
+    }
+    projectChannel?.post('project-saved');
+    elements.yucFetchSummary.textContent = `完成：成功 ${successCount} 部，未匹配 ${notFoundCount} 部，失败 ${errorCount} 部。原图也已保存到 exports/${payload.season}/。`;
+    setStatus('已保存');
+    await renderEntries();
+  } catch (error) {
+    elements.yucFetchSummary.textContent = `无法获取：${error.message}`;
+    setStatus('获取失败');
+  } finally {
+    elements.fetchYucImages.disabled = false;
+    elements.yucSourceUrl.disabled = false;
+  }
 }
 
 function makeUploadControl(entry, kind) {
@@ -178,13 +291,19 @@ async function makeEntryCard(entry, index) {
   title.className = 'image-entry-card__title';
   title.textContent = `${index + 1}. ${entry.title || '未命名动画'}`;
 
+  const status = importStatuses.get(entry.id);
+  const statusLine = document.createElement('p');
+  statusLine.className = `image-entry-card__status${status ? ` image-entry-card__status--${status.type}` : ''}`;
+  statusLine.textContent = status?.message || '';
+  statusLine.hidden = !status;
+
   const slots = document.createElement('div');
   slots.className = 'image-slot-grid';
   slots.append(
     await makeImageSlot(entry, 'visual'),
     await makeImageSlot(entry, 'infoCard'),
   );
-  card.append(title, slots);
+  card.append(title, statusLine, slots);
   return card;
 }
 
@@ -219,6 +338,8 @@ async function initialize() {
     }
 
     updateProjectLinks(project.id);
+    elements.yucSourceUrl.value = localStorage.getItem(YUC_SOURCE_KEY) || elements.yucSourceUrl.value;
+    elements.fetchYucImages.addEventListener('click', () => void importYucImages());
     projectChannel = createProjectChannel(project.id);
     await renderEntries();
     elements.workspace.hidden = false;
