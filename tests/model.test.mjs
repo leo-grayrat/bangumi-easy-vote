@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  assignImageAsset,
   createEntry,
   createQuestionTemplate,
   deriveTitleFromFilename,
@@ -50,6 +51,21 @@ test('createEntry returns the stable entry shape without temporary blob URLs', (
       selectedAssetId: '',
     },
   );
+});
+
+test('assignImageAsset keeps both image slots and changes the selected image only when requested', () => {
+  const entry = createEntry({ title: '世界舞动' });
+
+  assignImageAsset(entry, 'visual', 'visual-1');
+  assert.equal(entry.visualAssetId, 'visual-1');
+  assert.equal(entry.selectedAssetId, 'visual-1');
+
+  assignImageAsset(entry, 'infoCard', 'card-1');
+  assert.equal(entry.infoCardAssetId, 'card-1');
+  assert.equal(entry.selectedAssetId, 'visual-1');
+
+  assignImageAsset(entry, 'infoCard', 'card-1', { select: true });
+  assert.equal(entry.selectedAssetId, 'card-1');
 });
 
 test('question templates interpolate per-anime prompts and one-based indices', () => {

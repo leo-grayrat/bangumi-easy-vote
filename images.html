@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="description" content="为动画问卷整理视觉图和资料卡。" />
+    <title>番组投票图片</title>
+    <link rel="stylesheet" href="bangumi-components.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="app-header__row">
+        <a class="app-name" href="index.html" data-project-link="index.html">番组投票题目编辑器</a>
+        <output class="save-status" id="save-status" aria-live="polite">正在载入</output>
+      </div>
+      <nav class="bgm-tab app-tabs" aria-label="工作区">
+        <a class="bgm-tab__item" href="index.html" data-project-link="index.html">题目</a>
+        <a class="bgm-tab__item bgm-tab__item--active" href="images.html" data-project-link="images.html">图片</a>
+      </nav>
+    </header>
+
+    <main class="editor-shell">
+      <div class="load-error" id="load-error" role="alert" hidden></div>
+
+      <section class="panel image-workspace" id="image-workspace" hidden aria-labelledby="image-heading">
+        <div class="section-heading image-page-heading">
+          <div>
+            <h1 id="image-heading">图片</h1>
+            <p class="image-page-note" id="project-name"></p>
+          </div>
+          <span class="entry-count" id="image-entry-count"></span>
+        </div>
+
+        <p class="image-page-note">
+          每部动画可以保存一张视觉图和一张资料卡，再选择问卷实际使用哪张。
+        </p>
+        <div class="image-entry-list" id="image-entry-list"></div>
+      </section>
+    </main>
+
+    <script type="module" src="src/images-app.js"></script>
+  </body>
+</html>

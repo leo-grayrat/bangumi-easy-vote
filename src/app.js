@@ -114,6 +114,12 @@ function ensureProjectInUrl(id) {
     url.searchParams.set('project', id);
     window.history.replaceState(null, '', url);
   }
+
+  document.querySelectorAll('[data-project-link]').forEach((link) => {
+    const target = new URL(link.dataset.projectLink, window.location.href);
+    target.searchParams.set('project', id);
+    link.href = target.href;
+  });
 }
 
 function selectedLabel(select) {

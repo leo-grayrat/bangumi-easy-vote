@@ -352,6 +352,119 @@ h2 {
   color: #c12b38;
 }
 
+.image-workspace {
+  display: grid;
+  gap: 16px;
+}
+
+.image-page-heading {
+  margin-bottom: 0;
+}
+
+.image-page-note {
+  color: #9f9b9b;
+  font-size: 13px;
+}
+
+.image-entry-list {
+  display: grid;
+  gap: 16px;
+}
+
+.image-entry-card {
+  overflow: hidden;
+  border: 1px solid #e8e3e3;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.image-entry-card__title {
+  padding: 11px 14px;
+  border-bottom: 1px solid #e8e3e3;
+  background: #fafafa;
+  font-size: 15px;
+}
+
+.image-slot-grid {
+  display: grid;
+}
+
+.image-slot {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+  padding: 14px;
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.image-slot + .image-slot {
+  border-top: 1px solid #e8e3e3;
+}
+
+.image-slot--dragging {
+  background: #f4fbfe;
+  box-shadow: inset 0 0 0 2px #54b5df;
+}
+
+.image-slot__heading h3 {
+  margin: 0;
+  color: #595555;
+  font-size: 14px;
+}
+
+.image-slot__preview {
+  display: grid;
+  width: 100%;
+  min-height: 190px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px dashed #c8c2c2;
+  border-radius: 8px;
+  background: #f7f7f7;
+  color: #9f9b9b;
+  font-size: 13px;
+}
+
+.image-slot__preview--visual {
+  max-width: 270px;
+  aspect-ratio: 2 / 3;
+  justify-self: center;
+}
+
+.image-slot__preview--infoCard {
+  aspect-ratio: 16 / 6;
+}
+
+.image-slot__preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.image-slot__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.image-slot__actions .bgm-button {
+  --height: 32px;
+}
+
+.image-upload-button {
+  cursor: pointer;
+}
+
+.image-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .bgm-button:disabled {
   opacity: 0.5;
 }
@@ -368,6 +481,15 @@ h2 {
 
   .entry-row__actions {
     padding-left: 0;
+  }
+
+  .image-slot-grid {
+    grid-template-columns: minmax(240px, 0.7fr) minmax(360px, 1.3fr);
+  }
+
+  .image-slot + .image-slot {
+    border-top: 0;
+    border-left: 1px solid #e8e3e3;
   }
 }
 

@@ -8,6 +8,7 @@ const root = path.resolve('D:/File/Git/bangumi-easy-vote');
 
 test('resolveRequestPath maps the root and public assets inside the repository', () => {
   assert.equal(resolveRequestPath('/', root), path.join(root, 'index.html'));
+  assert.equal(resolveRequestPath('/images.html', root), path.join(root, 'images.html'));
   assert.equal(resolveRequestPath('/src/app.js', root), path.join(root, 'src', 'app.js'));
   assert.equal(
     resolveRequestPath('/form-import-findings.md', root),

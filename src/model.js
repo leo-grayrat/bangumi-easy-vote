@@ -103,6 +103,28 @@ export function createEntry({
   };
 }
 
+export function assignImageAsset(entry, kind, assetId, { select = false } = {}) {
+  if (!entry || typeof entry !== 'object') {
+    throw new TypeError('entry must be an object.');
+  }
+  if (kind !== 'visual' && kind !== 'infoCard') {
+    throw new TypeError('kind must be either "visual" or "infoCard".');
+  }
+
+  const normalizedAssetId = String(assetId ?? '').trim();
+  if (!normalizedAssetId) {
+    throw new TypeError('assetId must be a non-empty string.');
+  }
+
+  const field = kind === 'visual' ? 'visualAssetId' : 'infoCardAssetId';
+  entry[field] = normalizedAssetId;
+  if (select || !entry.selectedAssetId) {
+    entry.selectedAssetId = normalizedAssetId;
+  }
+
+  return entry;
+}
+
 export function interpolatePrompt(prompt, entry, index) {
   return String(prompt ?? '')
     .replaceAll('{title}', String(entry?.title ?? ''))
