@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import test from 'node:test';
+import * as yucExporter from '../scripts/yuc-exporter.mjs';
 
 import {
   findAvailablePort,
@@ -90,6 +91,19 @@ test('matchCatalogEntry rejects ambiguous partial titles but keeps an exact matc
 test('outputBasename produces ordered Windows-safe filenames', () => {
   assert.equal(outputBasename(0, '相反的你和我 第2期'), '01-相反的你和我 第2期');
   assert.equal(outputBasename(11, '标题:测试/版本?'), '12-标题-测试-版本-');
+});
+
+test('contentAwareCardBounds keeps overflowing staff text below the table box', () => {
+  const bounds = yucExporter.contentAwareCardBounds({
+    visual: { left: 20, top: 100, right: 200, bottom: 500 },
+    table: { left: 200, top: 100, right: 700, bottom: 420 },
+    content: [
+      { left: 220, top: 140, right: 680, bottom: 418 },
+      { left: 420, top: 160, right: 690, bottom: 610 },
+    ],
+  });
+
+  assert.deepEqual(bounds, { x: 20, y: 100, width: 680, height: 510 });
 });
 
 test('findAvailablePort returns a concrete loopback port for Chrome debugging', async () => {

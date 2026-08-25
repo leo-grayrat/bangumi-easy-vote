@@ -50,6 +50,24 @@ function normalizeTitle(value) {
     .replace(/[\s《》「」『』]/g, '');
 }
 
+export function contentAwareCardBounds({ visual, table, content = [] }) {
+  const rects = [visual, table, ...content].filter((rect) => (
+    Number.isFinite(rect?.left)
+    && Number.isFinite(rect?.top)
+    && Number.isFinite(rect?.right)
+    && Number.isFinite(rect?.bottom)
+    && rect.right > rect.left
+    && rect.bottom > rect.top
+  ));
+  if (rects.length === 0) return null;
+
+  const left = Math.min(...rects.map((rect) => rect.left));
+  const top = Math.min(...rects.map((rect) => rect.top));
+  const right = Math.max(...rects.map((rect) => rect.right));
+  const bottom = Math.max(...rects.map((rect) => rect.bottom));
+  return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
 export function parseYucCatalog(html) {
   const entries = [];
   const blocks = String(html ?? '').split(/<!--\s*#[^>]+-->/g).slice(1);
@@ -349,13 +367,32 @@ async function detailCardRect(client, title) {
         : table?.parentElement;
       const visualWrap = sourceTableWrap?.previousElementSibling;
       if (!table || !visualWrap) return { count: 0, candidates: candidates.length, href: location.href };
-      const first = visualWrap.getBoundingClientRect();
-      const second = table.getBoundingClientRect();
-      const left = Math.min(first.left, second.left) + scrollX;
-      const top = Math.min(first.top, second.top) + scrollY;
-      const right = Math.max(first.right, second.right) + scrollX;
-      const bottom = Math.max(first.bottom, second.bottom) + scrollY;
-      return { count: 1, x: left, y: top, width: right - left, height: bottom - top };
+      const toDocumentRect = (rect) => ({
+        left: rect.left + scrollX,
+        top: rect.top + scrollY,
+        right: rect.right + scrollX,
+        bottom: rect.bottom + scrollY,
+      });
+      const content = [
+        ...table.querySelectorAll('*'),
+        ...visualWrap.querySelectorAll('*'),
+      ].map((node) => toDocumentRect(node.getBoundingClientRect()));
+
+      const walker = document.createTreeWalker(table, NodeFilter.SHOW_TEXT);
+      while (walker.nextNode()) {
+        const node = walker.currentNode;
+        if (!node.textContent.trim()) continue;
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        content.push(...[...range.getClientRects()].map(toDocumentRect));
+      }
+
+      const bounds = (${contentAwareCardBounds.toString()})({
+        visual: toDocumentRect(visualWrap.getBoundingClientRect()),
+        table: toDocumentRect(table.getBoundingClientRect()),
+        content,
+      });
+      return bounds ? { count: 1, ...bounds } : { count: 0, candidates: candidates.length, href: location.href };
     })()`,
   });
   if (result.exceptionDetails) {
