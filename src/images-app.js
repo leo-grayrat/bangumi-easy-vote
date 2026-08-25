@@ -1,4 +1,4 @@
-import { assignImageAsset } from './model.js';
+import { applyMatchedTitle, assignImageAsset } from './model.js';
 import { createProjectChannel, openProjectStore } from './project-store.js';
 import { readYucImportEvents } from './yuc-import.js';
 
@@ -71,6 +71,35 @@ async function persistProject() {
   setStatus('已保存');
 }
 
+async function saveEntryTitle(entry, input) {
+  const title = input.value.trim();
+  entry.title = title;
+  input.value = title;
+  importStatuses.delete(entry.id);
+  await persistProject();
+  projectChannel?.post('project-saved');
+  showImportStatus(entry.id, {
+    type: title ? 'success' : 'error',
+    message: title ? '名称已保存；获取成功后会自动补全为 YUC 完整标题' : '名称不能为空',
+  });
+}
+
+function syncEntryTitlesFromInputs() {
+  elements.entryList.querySelectorAll('.image-entry-card').forEach((card) => {
+    const entry = project.entries.find((candidate) => candidate.id === card.dataset.entryId);
+    const input = card.querySelector('.image-entry-title-input');
+    if (!entry || !input) return;
+    entry.title = input.value.trim();
+    input.value = entry.title;
+  });
+}
+
+function setEntryTitleInputsDisabled(disabled) {
+  elements.entryList.querySelectorAll('.image-entry-title-input').forEach((input) => {
+    input.disabled = disabled;
+  });
+}
+
 async function storeImageAsset(entry, kind, { blob, filename, mimeType }) {
   const oldAssetId = kind === 'visual' ? entry.visualAssetId : entry.infoCardAssetId;
   const assetId = await projectStore.saveAsset({
@@ -140,8 +169,12 @@ async function importYucImages() {
     return;
   }
 
+  syncEntryTitlesFromInputs();
+  await projectStore.saveProject(project);
+  projectChannel?.post('project-saved');
   elements.fetchYucImages.disabled = true;
   elements.yucSourceUrl.disabled = true;
+  setEntryTitleInputsDisabled(true);
   elements.yucFetchProgress.hidden = false;
   elements.yucFetchProgress.max = project.entries.length;
   elements.yucFetchProgress.value = 0;
@@ -194,6 +227,11 @@ async function importYucImages() {
           errorCount += 1;
           showImportStatus(entry.id, { type: 'error', message: result.message || '图片生成失败' });
         } else {
+          const titleChanged = applyMatchedTitle(entry, result.matchedTitle);
+          const titleInput = elements.entryList.querySelector(
+            `[data-entry-id="${CSS.escape(entry.id)}"] .image-entry-title-input`,
+          );
+          if (titleInput) titleInput.value = entry.title;
           try {
             const [visual, infoCard] = await Promise.all([
               fetchImageFile(result.visual),
@@ -208,9 +246,15 @@ async function importYucImages() {
             successCount += 1;
             showImportStatus(entry.id, {
               type: 'success',
-              message: `已保存两张图片（${successCount} 部成功）`,
+              message: titleChanged
+                ? `已补全为“${entry.title}”并保存两张图片（${successCount} 部成功）`
+                : `已保存两张图片（${successCount} 部成功）`,
             });
           } catch (error) {
+            if (titleChanged) {
+              await projectStore.saveProject(project);
+              projectChannel?.post('project-saved');
+            }
             errorCount += 1;
             showImportStatus(entry.id, { type: 'error', message: `保存失败：${error.message}` });
           }
@@ -239,6 +283,7 @@ async function importYucImages() {
   } finally {
     elements.fetchYucImages.disabled = false;
     elements.yucSourceUrl.disabled = false;
+    setEntryTitleInputsDisabled(false);
   }
 }
 
@@ -324,9 +369,33 @@ async function makeEntryCard(entry, index) {
   card.className = 'image-entry-card';
   card.dataset.entryId = entry.id;
 
-  const title = document.createElement('h2');
+  const title = document.createElement('div');
   title.className = 'image-entry-card__title';
-  title.textContent = `${index + 1}. ${entry.title || '未命名动画'}`;
+  const number = document.createElement('span');
+  number.className = 'image-entry-card__index';
+  number.textContent = `${index + 1}.`;
+  const titleWrapper = document.createElement('label');
+  titleWrapper.className = 'bgm-input__wrapper bgm-input__wrapper--rounded';
+  const titleInput = document.createElement('input');
+  titleInput.className = 'bgm-input image-entry-title-input';
+  titleInput.type = 'text';
+  titleInput.value = entry.title;
+  titleInput.setAttribute('aria-label', `第 ${index + 1} 部动画的匹配和问卷名称`);
+  titleInput.addEventListener('input', () => {
+    entry.title = titleInput.value;
+    importStatuses.delete(entry.id);
+    setStatus('尚未保存');
+  });
+  titleInput.addEventListener('change', () => void saveEntryTitle(entry, titleInput));
+  titleInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') titleInput.blur();
+    if (event.key === 'Escape') {
+      titleInput.value = entry.title;
+      titleInput.blur();
+    }
+  });
+  titleWrapper.append(titleInput);
+  title.append(number, titleWrapper);
 
   const status = importStatuses.get(entry.id);
   const statusLine = document.createElement('p');

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import * as model from '../src/model.js';
 
 import {
   assignImageAsset,
@@ -66,6 +67,15 @@ test('assignImageAsset keeps both image slots and changes the selected image onl
 
   assignImageAsset(entry, 'infoCard', 'card-1', { select: true });
   assert.equal(entry.selectedAssetId, 'card-1');
+});
+
+test('a successful YUC match replaces a short project title with the canonical title', () => {
+  assert.equal(typeof model.applyMatchedTitle, 'function');
+  const entry = createEntry({ title: 'Clevatess' });
+
+  model.applyMatchedTitle(entry, '  Clevatess 第2期 魔兽之王与虚假的勇者传承  ');
+
+  assert.equal(entry.title, 'Clevatess 第2期 魔兽之王与虚假的勇者传承');
 });
 
 test('question templates interpolate per-anime prompts and one-based indices', () => {

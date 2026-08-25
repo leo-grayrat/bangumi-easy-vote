@@ -452,10 +452,28 @@ h2 {
 }
 
 .image-entry-card__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 11px 14px;
   border-bottom: 1px solid #e8e3e3;
   background: #fafafa;
   font-size: 15px;
+}
+
+.image-entry-card__title .bgm-input__wrapper {
+  flex: 1;
+  padding-block: 5px;
+  background: #fff;
+}
+
+.image-entry-card__index {
+  flex: 0 0 auto;
+  font-weight: 700;
+}
+
+.image-entry-title-input {
+  font-weight: 600;
 }
 
 .image-entry-card__status {

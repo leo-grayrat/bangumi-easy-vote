@@ -103,6 +103,14 @@ export function createEntry({
   };
 }
 
+export function applyMatchedTitle(entry, matchedTitle) {
+  const title = String(matchedTitle ?? '').trim();
+  if (!entry || typeof entry !== 'object' || !title) return false;
+  const changed = entry.title !== title;
+  entry.title = title;
+  return changed;
+}
+
 export function assignImageAsset(entry, kind, assetId, { select = false } = {}) {
   if (!entry || typeof entry !== 'object') {
     throw new TypeError('entry must be an object.');
