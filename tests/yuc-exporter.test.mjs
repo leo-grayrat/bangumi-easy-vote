@@ -23,12 +23,39 @@ const DETAIL_HTML = `
   <div><table width="500px"><tr><td class="title_main_r" colspan="2" rowspan="2">
   <p class="title_cn_r1">碧蓝之海<br>第3期</p></td></tr></table></div>
   <div style="clear:both"></div>
+  <!--#B18-->
+  <div style="float:left"><img width="180px" data-src="https://img.example/clevatess.jpg"></div>
+  <div><table width="500px"><tr><td class="title_main_r" colspan="2" rowspan="2">
+  <p class="title_cn_r2">Clevatess 第2期<br>魔兽之王与虚假的勇者传承</p></td></tr></table></div>
+  <div style="clear:both"></div>
+  <!--#B19-->
+  <div style="float:left"><img width="180px" data-src="https://img.example/re-zero.jpg"></div>
+  <div><table width="500px"><tr><td class="title_main_r" colspan="2" rowspan="2">
+  <p class="title_cn_r3">Re:从零开始的异世界生活<br>第4期 Part.2 夺还篇</p></td></tr></table></div>
+  <div style="clear:both"></div>
+  <!--#B20-->
+  <div style="float:left"><img width="180px" data-src="https://img.example/maid.jpg"></div>
+  <div><table width="500px"><tr><td class="title_main_r" colspan="2" rowspan="2">
+  <p class="title_cn_r4">女主角？圣女？<br>不，我是杂役女仆（自豪）！</p></td></tr></table></div>
+  <div style="clear:both"></div>
 `;
 
 test('parseYucCatalog reads the Chinese detail title and its original visual URL', () => {
   assert.deepEqual(parseYucCatalog(DETAIL_HTML), [
     { title: '世界舞动', visualUrl: 'https://img.example/world.jpg' },
     { title: '碧蓝之海 第3期', visualUrl: 'https://img.example/grand-blue.jpg' },
+    {
+      title: 'Clevatess 第2期 魔兽之王与虚假的勇者传承',
+      visualUrl: 'https://img.example/clevatess.jpg',
+    },
+    {
+      title: 'Re:从零开始的异世界生活 第4期 Part.2 夺还篇',
+      visualUrl: 'https://img.example/re-zero.jpg',
+    },
+    {
+      title: '女主角？圣女？ 不，我是杂役女仆（自豪）！',
+      visualUrl: 'https://img.example/maid.jpg',
+    },
   ]);
 });
 
@@ -37,6 +64,27 @@ test('matchCatalogEntry accepts harmless spacing differences but not a different
 
   assert.equal(matchCatalogEntry(catalog, '碧蓝之海第3期')?.visualUrl, 'https://img.example/grand-blue.jpg');
   assert.equal(matchCatalogEntry(catalog, '碧蓝之海 第2期'), null);
+});
+
+test('matchCatalogEntry accepts a unique partial title in either direction', () => {
+  const catalog = parseYucCatalog(DETAIL_HTML);
+
+  assert.equal(matchCatalogEntry(catalog, 'Clevatess')?.visualUrl, 'https://img.example/clevatess.jpg');
+  assert.equal(
+    matchCatalogEntry([{ title: '才女的侍从', visualUrl: 'servant.jpg' }], '才女的侍从 在贵族学校照顾大小姐')?.visualUrl,
+    'servant.jpg',
+  );
+});
+
+test('matchCatalogEntry rejects ambiguous partial titles but keeps an exact match', () => {
+  const catalog = [
+    { title: '碧蓝', visualUrl: 'exact.jpg' },
+    { title: '碧蓝之海 第3期', visualUrl: 'grand-blue.jpg' },
+    { title: '碧蓝航线 微速前行 第2期', visualUrl: 'azur-lane.jpg' },
+  ];
+
+  assert.equal(matchCatalogEntry(catalog, '碧蓝')?.visualUrl, 'exact.jpg');
+  assert.equal(matchCatalogEntry(catalog.slice(1), '碧蓝'), null);
 });
 
 test('outputBasename produces ordered Windows-safe filenames', () => {

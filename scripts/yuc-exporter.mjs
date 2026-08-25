@@ -55,7 +55,7 @@ export function parseYucCatalog(html) {
   const blocks = String(html ?? '').split(/<!--\s*#[^>]+-->/g).slice(1);
 
   for (const block of blocks) {
-    const titleMatch = block.match(/<p\b[^>]*class=["'][^"']*\btitle_cn_r1?\b[^"']*["'][^>]*>([\s\S]*?)<\/p>/i);
+    const titleMatch = block.match(/<p\b[^>]*class=["'][^"']*\btitle_cn_r\d*\b[^"']*["'][^>]*>([\s\S]*?)<\/p>/i);
     const imageArea = block.match(/<div\b[^>]*style=["'][^"']*float\s*:\s*left[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)?.[1] ?? '';
     const imageMatch = imageArea.match(/<img\b[^>]*(?:data-src|src)=["']([^"']+)["'][^>]*>/i);
     if (!titleMatch || !imageMatch) {
@@ -73,8 +73,16 @@ export function parseYucCatalog(html) {
 
 export function matchCatalogEntry(catalog, requestedTitle) {
   const key = normalizeTitle(requestedTitle);
-  const matches = catalog.filter((entry) => normalizeTitle(entry.title) === key);
-  return matches.length === 1 ? matches[0] : null;
+  if (!key) return null;
+
+  const exactMatches = catalog.filter((entry) => normalizeTitle(entry.title) === key);
+  if (exactMatches.length > 0) return exactMatches.length === 1 ? exactMatches[0] : null;
+
+  const partialMatches = catalog.filter((entry) => {
+    const catalogKey = normalizeTitle(entry.title);
+    return catalogKey.includes(key) || key.includes(catalogKey);
+  });
+  return partialMatches.length === 1 ? partialMatches[0] : null;
 }
 
 export function outputBasename(index, title) {
@@ -332,7 +340,7 @@ async function detailCardRect(client, title) {
     returnByValue: true,
     expression: `(() => {
       const normalize = (value) => String(value || '').normalize('NFKC').toLocaleLowerCase('zh-CN').replace(/[\\s《》「」『』]/g, '');
-      const candidates = [...document.querySelectorAll('p.title_cn_r, p.title_cn_r1')];
+      const candidates = [...document.querySelectorAll('p[class*="title_cn_r"]')];
       const matches = candidates.filter((node) => normalize(node.textContent) === ${requested});
       if (matches.length !== 1) return { count: matches.length, candidates: candidates.length, href: location.href };
       const table = matches[0].closest('table');

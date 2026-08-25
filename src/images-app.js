@@ -177,7 +177,7 @@ async function importYucImages() {
           type: event.matchedTitle ? 'warning' : 'error',
           message: event.matchedTitle
             ? `已匹配“${event.matchedTitle}”，正在生成视觉图和资料卡……`
-            : `第 ${event.index}/${event.total} 部：YUC 中没有完全匹配的标题`,
+            : `第 ${event.index}/${event.total} 部：没有找到唯一匹配，请换用更有区分度的名称`,
         });
         return;
       }
@@ -189,7 +189,7 @@ async function importYucImages() {
 
         if (result.status === 'not-found') {
           notFoundCount += 1;
-          showImportStatus(entry.id, { type: 'warning', message: '未匹配，已跳过' });
+          showImportStatus(entry.id, { type: 'warning', message: '没有找到唯一匹配，已跳过' });
         } else if (result.status !== 'ok') {
           errorCount += 1;
           showImportStatus(entry.id, { type: 'error', message: result.message || '图片生成失败' });
