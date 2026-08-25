@@ -387,6 +387,50 @@ async function detailCardRect(client, title) {
         content.push(...[...range.getClientRects()].map(toDocumentRect));
       }
 
+      // YUC uses rowspan cells whose text can render below the table's own box.
+      // Measure those cells in a same-width, natural-flow copy before choosing
+      // the screenshot bottom, rather than trusting the clipped table height.
+      for (const cell of table.querySelectorAll('td[class^="staff_r"], td[class^="cast_r"]')) {
+        const cellRect = cell.getBoundingClientRect();
+        const style = getComputedStyle(cell);
+        const meter = document.createElement('div');
+        meter.style.cssText = [
+          'position:absolute', 'visibility:hidden', 'pointer-events:none', 'left:-99999px', 'top:0',
+          'box-sizing:border-box', 'width:' + cellRect.width + 'px',
+          'font-family:' + style.fontFamily, 'font-size:' + style.fontSize,
+          'font-weight:' + style.fontWeight, 'font-style:' + style.fontStyle,
+          'line-height:' + style.lineHeight, 'letter-spacing:' + style.letterSpacing,
+          'white-space:' + style.whiteSpace, 'word-break:' + style.wordBreak,
+          'overflow-wrap:' + style.overflowWrap,
+          'padding:' + style.paddingTop + ' ' + style.paddingRight + ' ' + style.paddingBottom + ' ' + style.paddingLeft,
+        ].join(';');
+        meter.innerHTML = cell.innerHTML;
+        document.body.append(meter);
+        const measuredHeight = meter.getBoundingClientRect().height;
+        meter.remove();
+        const explicitLines = (cell.innerHTML.match(/<br\\s*\\/?\\s*>/gi) ?? []).length + 1;
+        const lineHeight = Number.parseFloat(style.lineHeight) || Number.parseFloat(style.fontSize) * 1.2;
+        const verticalPadding = Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom);
+        const naturalHeight = Math.max(measuredHeight, (explicitLines * lineHeight) + verticalPadding);
+        content.push({
+          left: cellRect.left + scrollX,
+          top: cellRect.top + scrollY,
+          right: cellRect.right + scrollX,
+          // Chromium can paint the final glyph a pixel below its line box.
+          bottom: cellRect.top + scrollY + naturalHeight + 1,
+        });
+      }
+
+      const initialTableRect = toDocumentRect(table.getBoundingClientRect());
+      const requiredTableBottom = Math.max(
+        initialTableRect.bottom,
+        ...content.map((rect) => rect.bottom),
+      );
+      if (requiredTableBottom > initialTableRect.bottom) {
+        table.style.height = (requiredTableBottom - initialTableRect.top) + 'px';
+        content.push(toDocumentRect(table.getBoundingClientRect()));
+      }
+
       const bounds = (${contentAwareCardBounds.toString()})({
         visual: toDocumentRect(visualWrap.getBoundingClientRect()),
         table: toDocumentRect(table.getBoundingClientRect()),
