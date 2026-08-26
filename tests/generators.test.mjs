@@ -64,6 +64,16 @@ test('formats WJX per-anime scales as one numeric line per score', () => {
   assert.doesNotMatch(output, /\[矩阵题\]/);
 });
 
+test('formats WJX multiple-choice and description with the documented compact labels', () => {
+  const multiple = generateImportText(
+    project('wjx', template({ type: 'multiple', prompt: '《{title}》吸引你的地方？', options: ['作画', '音乐'] })),
+  );
+
+  assert.match(multiple, /1\.《世界舞动》吸引你的地方？\[多选题\]\n作画\n音乐/);
+  assert.doesNotMatch(multiple, /A\.作画/);
+  assert.match(multiple, /问卷说明\[段落说明\]\n请选择符合你真实想法的选项。/);
+});
+
 test('formats Tencent per-anime scales with its range syntax', () => {
   const output = generateImportText(project('tencent', template()));
 

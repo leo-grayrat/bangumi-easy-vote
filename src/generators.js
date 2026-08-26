@@ -129,7 +129,7 @@ function wjxPreamble(project) {
   const description = projectDescription(project);
 
   if (description) {
-    sections.push(`问卷说明 [段落说明]\n${description}`);
+    sections.push(`问卷说明[段落说明]\n${description}`);
   }
 
   return sections;
@@ -180,8 +180,8 @@ function formatWjxQuestion(question) {
   }
   if (question.type === 'multiple') {
     return [
-      `${heading} [多选题]`,
-      ...question.options.map((option, index) => `${optionLetter(index)}.${option}`),
+      `${heading}[多选题]`,
+      ...question.options,
     ].join('\n');
   }
   if (question.type === 'scale') {
