@@ -155,7 +155,7 @@ export function interpolatePrompt(prompt, entry, index) {
 }
 
 function normalizeEntry(entry, index) {
-  return {
+  const normalized = {
     id: String(entry?.id ?? nextId()),
     title: String(entry?.title ?? '').trim(),
     order: Number.isInteger(entry?.order) ? entry.order : index,
@@ -164,6 +164,8 @@ function normalizeEntry(entry, index) {
     infoCardAssetId: String(entry?.infoCardAssetId ?? ''),
     selectedAssetId: String(entry?.selectedAssetId ?? ''),
   };
+  ensureDefaultImageSelection(normalized);
+  return normalized;
 }
 
 export function normalizeProjectRecord(record = {}) {

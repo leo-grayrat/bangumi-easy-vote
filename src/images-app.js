@@ -125,7 +125,9 @@ async function selectAsset(entry, kind) {
   assignImageAsset(entry, kind, assetId, { select: true });
   await persistProject();
   projectChannel?.post('project-saved');
+  const scrollTop = window.scrollY;
   await renderEntries();
+  window.scrollTo({ top: scrollTop });
 }
 
 async function saveImage(entry, kind, file) {

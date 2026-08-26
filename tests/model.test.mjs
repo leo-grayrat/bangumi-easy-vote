@@ -149,6 +149,10 @@ test('normalizeProjectRecord migrates a legacy vote project to a version 2 quest
       { id: 'second', title: '相反的你和我', order: 1, visualAssetId: '', infoCardAssetId: 'asset-opposite' },
     ],
   );
+  assert.deepEqual(
+    project.entries.map((entry) => entry.selectedAssetId),
+    ['asset-world', 'asset-opposite'],
+  );
 });
 
 test('validateProject reports blank and duplicate titles', () => {
