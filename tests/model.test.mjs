@@ -7,6 +7,7 @@ import {
   createEntry,
   createQuestionTemplate,
   deriveTitleFromFilename,
+  ensureDefaultImageSelection,
   interpolatePrompt,
   normalizeProjectRecord,
   serializeProject,
@@ -67,6 +68,21 @@ test('assignImageAsset keeps both image slots and changes the selected image onl
 
   assignImageAsset(entry, 'infoCard', 'card-1', { select: true });
   assert.equal(entry.selectedAssetId, 'card-1');
+});
+
+test('uses a stored info card as the default without replacing a manual selection', () => {
+  const unselected = createEntry({ title: '世界舞动', visualAssetId: 'visual-1', infoCardAssetId: 'card-1' });
+  assert.equal(ensureDefaultImageSelection(unselected), true);
+  assert.equal(unselected.selectedAssetId, 'card-1');
+
+  const manualVisual = createEntry({
+    title: '相反的你和我',
+    visualAssetId: 'visual-2',
+    infoCardAssetId: 'card-2',
+    selectedAssetId: 'visual-2',
+  });
+  assert.equal(ensureDefaultImageSelection(manualVisual), false);
+  assert.equal(manualVisual.selectedAssetId, 'visual-2');
 });
 
 test('a successful YUC match replaces a short project title with the canonical title', () => {

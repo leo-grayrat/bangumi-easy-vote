@@ -1,4 +1,4 @@
-import { applyMatchedTitle, assignImageAsset } from './model.js';
+import { applyMatchedTitle, assignImageAsset, ensureDefaultImageSelection } from './model.js';
 import { selectedImageDownloadFilename } from './image-downloads.js';
 import { createProjectChannel, openProjectStore } from './project-store.js';
 import { readYucImportEvents } from './yuc-import.js';
@@ -168,6 +168,11 @@ async function downloadSelectedImages() {
   elements.downloadSelectedSummary.textContent = '正在准备下载……';
 
   try {
+    const appliedDefaults = project.entries.map((entry) => ensureDefaultImageSelection(entry)).some(Boolean);
+    if (appliedDefaults) {
+      await persistProject();
+      projectChannel?.post('project-saved');
+    }
     const selected = await Promise.all(project.entries.map(async (entry, index) => {
       if (!entry.selectedAssetId) return null;
       const asset = await projectStore.loadAsset(entry.selectedAssetId);
@@ -494,6 +499,11 @@ async function initialize() {
     elements.fetchYucImages.addEventListener('click', () => void importYucImages());
     elements.downloadSelectedImages.addEventListener('click', () => void downloadSelectedImages());
     projectChannel = createProjectChannel(project.id);
+    const appliedDefaults = project.entries.map((entry) => ensureDefaultImageSelection(entry)).some(Boolean);
+    if (appliedDefaults) {
+      await persistProject();
+      projectChannel.post('project-saved');
+    }
     await renderEntries();
     elements.workspace.hidden = false;
     setStatus('已保存');

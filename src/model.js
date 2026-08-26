@@ -133,6 +133,21 @@ export function assignImageAsset(entry, kind, assetId, { select = false } = {}) 
   return entry;
 }
 
+export function ensureDefaultImageSelection(entry) {
+  if (!entry || typeof entry !== 'object' || entry.selectedAssetId) {
+    return false;
+  }
+
+  const defaultAssetId = String(entry.infoCardAssetId ?? '').trim()
+    || String(entry.visualAssetId ?? '').trim();
+  if (!defaultAssetId) {
+    return false;
+  }
+
+  entry.selectedAssetId = defaultAssetId;
+  return true;
+}
+
 export function interpolatePrompt(prompt, entry, index) {
   return String(prompt ?? '')
     .replaceAll('{title}', String(entry?.title ?? ''))
