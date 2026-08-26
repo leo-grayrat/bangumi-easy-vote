@@ -55,14 +55,21 @@ test('expands every anime into an editable scale question with its preview asset
   ]);
 });
 
-test('formats per-anime scales as two independent questions instead of a matrix on both platforms', () => {
-  for (const platform of ['wjx', 'tencent']) {
-    const output = generateImportText(project(platform, template()));
+test('formats WJX per-anime scales as one numeric line per score', () => {
+  const output = generateImportText(project('wjx', template()));
 
-    assert.equal((output.match(/\[量表题\]/g) ?? []).length, 2);
-    assert.equal((output.match(/1\(低\)~5\(高\)/g) ?? []).length, 2);
-    assert.doesNotMatch(output, /\[矩阵题\]/);
-  }
+  assert.match(output, /1\.请为《世界舞动》评分\[量表题\]\n1\n2\n3\n4\n5/);
+  assert.match(output, /2\.请为《相反的你和我》评分\[量表题\]\n1\n2\n3\n4\n5/);
+  assert.doesNotMatch(output, /1\(低\)~5\(高\)/);
+  assert.doesNotMatch(output, /\[矩阵题\]/);
+});
+
+test('formats Tencent per-anime scales with its range syntax', () => {
+  const output = generateImportText(project('tencent', template()));
+
+  assert.equal((output.match(/\[量表题\]/g) ?? []).length, 2);
+  assert.equal((output.match(/1\(低\)~5\(高\)/g) ?? []).length, 2);
+  assert.doesNotMatch(output, /\[矩阵题\]/);
 });
 
 test('turns all anime titles into one option question without per-option asset bindings', () => {

@@ -162,6 +162,13 @@ function formatScale(question) {
   return `${question.scale.min}(${question.scale.minLabel})~${question.scale.max}(${question.scale.maxLabel})`;
 }
 
+function formatWjxScale(question) {
+  return Array.from(
+    { length: question.scale.max - question.scale.min + 1 },
+    (_, index) => String(question.scale.min + index),
+  ).join('\n');
+}
+
 function formatWjxQuestion(question) {
   if (question.type === 'dropdown' || question.type === 'longText') {
     throw new Error(`问卷星的 ${question.type} 题型尚未实测支持，暂不能生成导入文本。`);
@@ -178,7 +185,7 @@ function formatWjxQuestion(question) {
     ].join('\n');
   }
   if (question.type === 'scale') {
-    return `${heading} [量表题]\n${formatScale(question)}`;
+    return `${heading}[量表题]\n${formatWjxScale(question)}`;
   }
 
   return heading;
