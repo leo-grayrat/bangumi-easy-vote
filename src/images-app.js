@@ -1,4 +1,5 @@
 import { applyMatchedTitle, assignImageAsset } from './model.js';
+import { selectedImageDownloadFilename } from './image-downloads.js';
 import { createProjectChannel, openProjectStore } from './project-store.js';
 import { readYucImportEvents } from './yuc-import.js';
 
@@ -10,6 +11,8 @@ const SLOT_LABELS = {
 };
 
 const elements = {
+  downloadSelectedImages: document.querySelector('#download-selected-images'),
+  downloadSelectedSummary: document.querySelector('#download-selected-summary'),
   entryCount: document.querySelector('#image-entry-count'),
   entryList: document.querySelector('#image-entry-list'),
   fetchYucImages: document.querySelector('#fetch-yuc-images'),
@@ -100,7 +103,7 @@ function setEntryTitleInputsDisabled(disabled) {
   });
 }
 
-async function storeImageAsset(entry, kind, { blob, filename, mimeType }) {
+async function storeImageAsset(entry, kind, { blob, filename, mimeType }, { select = false } = {}) {
   const oldAssetId = kind === 'visual' ? entry.visualAssetId : entry.infoCardAssetId;
   const assetId = await projectStore.saveAsset({
     animeEntryId: entry.id,
@@ -109,7 +112,7 @@ async function storeImageAsset(entry, kind, { blob, filename, mimeType }) {
     mimeType,
     blob,
   });
-  assignImageAsset(entry, kind, assetId);
+  assignImageAsset(entry, kind, assetId, { select });
   return { assetId, oldAssetId };
 }
 
@@ -158,6 +161,49 @@ async function fetchImageFile(asset) {
     throw new Error('服务器返回的不是图片。');
   }
   return { blob, filename: asset.filename, mimeType: blob.type };
+}
+
+async function downloadSelectedImages() {
+  elements.downloadSelectedImages.disabled = true;
+  elements.downloadSelectedSummary.textContent = '正在准备下载……';
+
+  try {
+    const selected = await Promise.all(project.entries.map(async (entry, index) => {
+      if (!entry.selectedAssetId) return null;
+      const asset = await projectStore.loadAsset(entry.selectedAssetId);
+      if (!asset?.blob) return null;
+      return { entry, index, asset };
+    }));
+    const ready = selected.filter(Boolean);
+
+    for (const item of ready) {
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(item.asset.blob);
+      link.href = url;
+      link.download = selectedImageDownloadFilename({
+        index: item.index,
+        total: project.entries.length,
+        title: item.entry.title,
+        sourceFilename: item.asset.filename,
+      });
+      link.hidden = true;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+    }
+
+    const missing = project.entries.length - ready.length;
+    elements.downloadSelectedSummary.textContent = ready.length === 0
+      ? '没有可下载的问卷图片，请先为动画选择视觉图或资料卡。'
+      : missing > 0
+      ? `已开始下载 ${ready.length} 张；${missing} 部尚未选择图片，已跳过。`
+      : `已开始下载 ${ready.length} 张。`;
+  } catch (error) {
+    elements.downloadSelectedSummary.textContent = `下载失败：${error.message}`;
+  } finally {
+    elements.downloadSelectedImages.disabled = false;
+  }
 }
 
 async function importYucImages() {
@@ -238,7 +284,7 @@ async function importYucImages() {
               fetchImageFile(result.infoCard),
             ]);
             const visualSaved = await storeImageAsset(entry, 'visual', visual);
-            const cardSaved = await storeImageAsset(entry, 'infoCard', infoCard);
+            const cardSaved = await storeImageAsset(entry, 'infoCard', infoCard, { select: true });
             await projectStore.saveProject(project);
             for (const assetId of [visualSaved.oldAssetId, cardSaved.oldAssetId].filter(Boolean)) {
               await projectStore.deleteAsset(assetId);
@@ -446,6 +492,7 @@ async function initialize() {
     updateProjectLinks(project.id);
     elements.yucSourceUrl.value = localStorage.getItem(YUC_SOURCE_KEY) || elements.yucSourceUrl.value;
     elements.fetchYucImages.addEventListener('click', () => void importYucImages());
+    elements.downloadSelectedImages.addEventListener('click', () => void downloadSelectedImages());
     projectChannel = createProjectChannel(project.id);
     await renderEntries();
     elements.workspace.hidden = false;

@@ -366,6 +366,18 @@ h2 {
   font-size: 13px;
 }
 
+.image-download-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.image-download-bar__summary {
+  color: #777171;
+  font-size: 13px;
+}
+
 .yuc-import {
   display: grid;
   gap: 10px;
