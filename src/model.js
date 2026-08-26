@@ -134,12 +134,18 @@ export function assignImageAsset(entry, kind, assetId, { select = false } = {}) 
 }
 
 export function ensureDefaultImageSelection(entry) {
-  if (!entry || typeof entry !== 'object' || entry.selectedAssetId) {
+  if (!entry || typeof entry !== 'object') {
     return false;
   }
 
-  const defaultAssetId = String(entry.infoCardAssetId ?? '').trim()
-    || String(entry.visualAssetId ?? '').trim();
+  const infoCardAssetId = String(entry.infoCardAssetId ?? '').trim();
+  const visualAssetId = String(entry.visualAssetId ?? '').trim();
+  const selectedAssetId = String(entry.selectedAssetId ?? '').trim();
+  if (selectedAssetId && (selectedAssetId === infoCardAssetId || selectedAssetId === visualAssetId)) {
+    return false;
+  }
+
+  const defaultAssetId = infoCardAssetId || visualAssetId;
   if (!defaultAssetId) {
     return false;
   }

@@ -83,6 +83,15 @@ test('uses a stored info card as the default without replacing a manual selectio
   });
   assert.equal(ensureDefaultImageSelection(manualVisual), false);
   assert.equal(manualVisual.selectedAssetId, 'visual-2');
+
+  const staleSelection = createEntry({
+    title: '旧项目',
+    visualAssetId: 'visual-3',
+    infoCardAssetId: 'card-3',
+    selectedAssetId: 'deleted-asset',
+  });
+  assert.equal(ensureDefaultImageSelection(staleSelection), true);
+  assert.equal(staleSelection.selectedAssetId, 'card-3');
 });
 
 test('a successful YUC match replaces a short project title with the canonical title', () => {
