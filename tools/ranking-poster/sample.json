@@ -2,7 +2,7 @@
   "mode": "red",
   "brand_color": [255, 102, 113],
   "title": "7月新番中期评分 TOP 10",
-  "subtitle": "2026 MID-SEASON RESULTS",
+  "subtitle": "MID-SEASON TOP 10 ANIME",
   "assets": "tools/ranking-poster/assets",
   "thresholds": {
     "red_up": 1.0,
@@ -30,8 +30,8 @@
     {"title": "黄泉的使者", "score": 8.57, "voters": 7, "bgm_score": 6.9400, "image": "03.jpg", "focus": [0.50, 0.50]},
     {"title": "超超超超喜欢你的100个女孩子 第3期", "score": 8.33, "voters": 6, "bgm_score": 7.4574, "image": "04.jpg", "focus": [0.50, 0.50]},
     {"title": "相反的你和我 第2期", "score": 8.17, "voters": 6, "bgm_score": 7.7389, "image": "05.jpg", "focus": [0.50, 0.50]},
-    {"title": "花织同学转生后还是想干架", "score": 8.00, "voters": 4, "bgm_score": 6.8484, "image": "06.jpg", "focus": [0.50, 0.50]},
     {"title": "炒翻天", "score": 8.00, "voters": 5, "bgm_score": 7.1208, "image": "07.jpg", "focus": [0.50, 0.50]},
+    {"title": "花织同学转生后还是想干架", "score": 8.00, "voters": 4, "bgm_score": 6.8484, "image": "06.jpg", "focus": [0.50, 0.50]},
     {"title": "无职转生 第3期", "score": 7.83, "voters": 6, "bgm_score": 7.9190, "image": "08.jpg", "focus": [0.50, 0.50]},
     {"title": "Re:从零开始的异世界生活 第4期 Part.2 夺还篇", "title_lines": ["Re:从零开始的异世界生活 第4期", "Part.2 夺还篇"], "score": 7.80, "voters": 5, "bgm_score": 7.7866, "image": "09.jpg", "focus": [0.50, 0.50]},
     {"title": "幼女战记 第2期", "score": 7.75, "voters": 4, "bgm_score": 7.1764, "image": "10.jpg", "focus": [0.50, 0.50]}
