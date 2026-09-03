@@ -9,6 +9,7 @@ import {
 import {loadTrendIcons} from './poster-assets.js';
 import {POSTER_LAYOUT, renderPoster, rowAtCanvasPoint} from './poster-renderer.js';
 import {openProjectStore} from './project-store.js';
+import {createTmdbPicker} from './tmdb-picker.js';
 
 const RECENT_PROJECT_KEY = 'bangumi-easy-vote:recent-project';
 const SAMPLE_PATHS = {
@@ -66,6 +67,7 @@ let selectedItemId = '';
 let cropItemId = '';
 let dragPoint = null;
 let statusTimer = null;
+let tmdbPicker = null;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -269,6 +271,11 @@ function renderEntryList() {
 
     const imageRow = document.createElement('div');
     imageRow.className = 'poster-entry-image-row';
+    const tmdbButton = document.createElement('button');
+    tmdbButton.className = 'bgm-button bgm-button--secondary';
+    tmdbButton.type = 'button';
+    tmdbButton.textContent = item.providerIds?.tmdb ? 'TMDB 选图' : '从 TMDB 获取';
+    tmdbButton.addEventListener('click', () => tmdbPicker?.open(item));
     const fileLabel = document.createElement('label');
     fileLabel.className = 'bgm-button bgm-button--secondary bgm-button--color-blue poster-file-button';
     fileLabel.textContent = resources.images.has(item.id) ? '更换视觉图' : '导入视觉图';
@@ -287,7 +294,7 @@ function renderEntryList() {
         : '未导入图片';
     const imageInput = imageInputFor(item, cropButton, imageName);
     fileLabel.htmlFor = imageInput.id;
-    imageRow.append(fileLabel, imageInput, cropButton, imageName);
+    imageRow.append(tmdbButton, fileLabel, imageInput, cropButton, imageName);
 
     body.append(title.label, manual, numeric, imageRow);
     card.append(rank, body);
@@ -623,6 +630,15 @@ function bindControls() {
 
 async function init() {
   try {
+    tmdbPicker = createTmdbPicker({
+      onUseImage: async (item, file) => {
+        await attachImage(item, file);
+        renderEntryList();
+        renderNow();
+        openCrop(item);
+      },
+      onMappingChange: () => renderEntryList(),
+    });
     bindControls();
     await loadSourceProjectContext();
     resources.trendIcons = await loadTrendIcons();
