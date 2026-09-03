@@ -13,6 +13,7 @@
   --stats-head-h: 22px;
   --stats-score-w: 158px;
   --stats-compare-w: 187px;
+  --delta-sign-w: 24px;
   --stats-aux-h: 22px;
   --header-line-gap: 18px;
 
@@ -67,8 +68,8 @@
   background: var(--c-rank-top);
 }
 
-/* Pillow uses real glyph bounds plus --header-line-gap rather than fixed
-   baselines, so the title and subtitle keep visible vertical separation. */
+/* The renderer measures both title lines as one block, applies the explicit
+   line gap, then vertically centers that block inside the 146 px header. */
 
 .ranking-row {
   position: absolute;
@@ -168,6 +169,10 @@
 }
 
 .ranking-row__delta {
+  display: grid;
+  grid-template-columns: var(--delta-sign-w) auto;
+  justify-content: center;
+  align-items: center;
   font-size: 34px;
   font-weight: 900;
   text-align: center;
@@ -227,13 +232,5 @@
   color: #000;
 }
 
-.ranking-poster__footer {
-  position: absolute;
-  inset: var(--footer-top) 0 0 0;
-  display: grid;
-  place-items: start center;
-  padding-top: 42px;
-  background: transparent;
-  font-family: var(--font-small);
-  font-size: 25px;
-}
+/* The bottom 150 px remain transparent. Branding/footer copy is deliberately
+   left to later composition rather than rendered by this standalone tool. */
