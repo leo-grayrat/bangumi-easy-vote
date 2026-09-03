@@ -4,9 +4,10 @@ const API_KEY_PATTERN = /^[a-f0-9]{32}$/i;
 export function resolveTmdbCredential(value, env = process.env) {
   const raw = String(value ?? env.TMDB_API_TOKEN ?? env.TMDB_API_KEY ?? '').trim();
   if (!raw) return null;
-  return API_KEY_PATTERN.test(raw)
-    ? { type: 'apiKey', value: raw }
-    : { type: 'bearer', value: raw };
+  const normalized = raw.replace(/^Bearer\s+/i, '').trim();
+  return API_KEY_PATTERN.test(normalized)
+    ? { type: 'apiKey', value: normalized }
+    : { type: 'bearer', value: normalized };
 }
 
 async function tmdbJson(pathname, { credential, fetchImpl = globalThis.fetch, params = {} } = {}) {
@@ -129,7 +130,7 @@ export async function getTmdbArtwork(seriesId, options = {}) {
   const language = options.language ?? 'zh-CN';
   const [series, images] = await Promise.all([
     tmdbJson(`/tv/${id}`, { ...options, params: { language } }),
-    tmdbJson(`/tv/${id}/images`, { ...options, params: { include_image_language: 'zh,en,null' } }),
+    tmdbJson(`/tv/${id}/images`, { ...options, params: { include_image_language: 'zh,en,ja,null' } }),
   ]);
   const episodes = await recentEpisodeStills(id, series, { ...options, language });
   return {
