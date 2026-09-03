@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="description" content="编辑新番排行榜海报并导出透明 PNG。" />
+    <title>番组排行榜海报</title>
+    <link rel="stylesheet" href="bangumi-components.css" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="poster.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="app-header__row">
+        <a class="app-name" href="index.html" data-project-link="index.html">番组投票题目编辑器</a>
+        <output class="save-status" id="save-status" aria-live="polite">本地编辑</output>
+      </div>
+      <nav class="bgm-tab app-tabs" aria-label="工作区">
+        <a class="bgm-tab__item" href="index.html" data-project-link="index.html">题目</a>
+        <a class="bgm-tab__item" href="images.html" data-project-link="images.html">图片</a>
+        <a class="bgm-tab__item bgm-tab__item--active" href="poster.html" data-project-link="poster.html">排行榜海报</a>
+      </nav>
+    </header>
+
+    <main class="editor-shell poster-shell">
+      <div class="load-error" id="load-error" role="alert" hidden></div>
+      <div class="poster-layout" id="poster-workspace" hidden>
+        <div class="poster-editor-column">
+          <section class="panel" aria-labelledby="poster-data-heading">
+            <div class="section-heading section-heading--actions">
+              <div>
+                <h1 id="poster-data-heading">榜单数据</h1>
+                <p class="poster-section-note" id="source-project-name"></p>
+              </div>
+              <span class="entry-count" id="poster-entry-count">0 项</span>
+            </div>
+
+            <div class="poster-toolbar">
+              <button class="bgm-button bgm-button--secondary" id="load-red-sample" type="button">载入当前红榜</button>
+              <button class="bgm-button bgm-button--secondary" id="load-black-sample" type="button">载入当前黑榜</button>
+              <label class="bgm-button bgm-button--secondary bgm-button--color-blue poster-file-button" for="poster-project-file">导入榜单 JSON</label>
+              <input id="poster-project-file" class="poster-hidden-file" type="file" accept="application/json,.json" />
+            </div>
+
+            <div class="field-grid field-grid--two poster-data-fields">
+              <label class="field" for="poster-mode">
+                <span class="field__label">榜单类型</span>
+                <span class="bgm-select">
+                  <span class="bgm-select__box"><span id="poster-mode-label">红榜</span><span class="bgm-select__arrow" aria-hidden="true">⌄</span></span>
+                  <select id="poster-mode">
+                    <option value="red">红榜</option>
+                    <option value="black">黑榜</option>
+                  </select>
+                </span>
+              </label>
+              <label class="field" for="poster-title">
+                <span class="field__label">主标题</span>
+                <span class="bgm-input__wrapper bgm-input__wrapper--rounded"><input class="bgm-input" id="poster-title" type="text" /></span>
+              </label>
+            </div>
+            <label class="field" for="poster-subtitle">
+              <span class="field__label">英文副标题</span>
+              <span class="bgm-input__wrapper bgm-input__wrapper--rounded"><input class="bgm-input" id="poster-subtitle" type="text" /></span>
+            </label>
+            <small class="field-message" id="poster-data-message" aria-live="polite"></small>
+          </section>
+
+          <section class="panel" aria-labelledby="poster-entries-heading">
+            <div class="section-heading">
+              <div>
+                <h2 id="poster-entries-heading">榜单条目</h2>
+                <p class="poster-section-note">分数或投票数改动后按当前榜单规则重新排序。</p>
+              </div>
+            </div>
+            <div class="poster-entry-list" id="poster-entry-list"></div>
+          </section>
+
+          <section class="panel" aria-labelledby="poster-style-heading">
+            <div class="section-heading">
+              <div>
+                <h2 id="poster-style-heading">样式</h2>
+                <p class="poster-section-note">这里只开放字体、字号和已经反复调整过的间距参数。</p>
+              </div>
+            </div>
+            <div class="poster-style-list" id="poster-style-list"></div>
+            <div class="field-grid field-grid--two poster-style-misc">
+              <label class="field" for="header-line-gap">
+                <span class="field__label">主副标题行距</span>
+                <span class="bgm-input__wrapper bgm-input__wrapper--rounded"><input class="bgm-input" id="header-line-gap" type="number" min="0" max="60" step="1" /></span>
+              </label>
+              <label class="field" for="minus-y-offset">
+                <span class="field__label">负号纵向校正</span>
+                <span class="bgm-input__wrapper bgm-input__wrapper--rounded"><input class="bgm-input" id="minus-y-offset" type="number" min="-20" max="20" step="1" /></span>
+              </label>
+            </div>
+          </section>
+        </div>
+
+        <aside class="poster-preview-column">
+          <section class="panel poster-preview-panel" aria-labelledby="poster-preview-heading">
+            <div class="section-heading section-heading--actions">
+              <div>
+                <h2 id="poster-preview-heading">实时预览</h2>
+                <p class="poster-section-note">点击海报中的某一行可选中对应条目。</p>
+              </div>
+              <span class="entry-count">1200 × 1800</span>
+            </div>
+            <div class="poster-canvas-frame">
+              <canvas id="poster-canvas" width="1200" height="1800" aria-label="排行榜海报预览"></canvas>
+            </div>
+            <div class="poster-export-actions">
+              <button class="bgm-button bgm-button--primary" id="download-poster" type="button">导出透明 PNG</button>
+              <button class="bgm-button bgm-button--secondary bgm-button--color-blue" id="download-poster-project" type="button">下载海报项目 JSON</button>
+            </div>
+            <small class="field-message" id="poster-output-message" aria-live="polite"></small>
+          </section>
+        </aside>
+      </div>
+    </main>
+
+    <dialog class="poster-crop-dialog" id="poster-crop-dialog">
+      <form method="dialog" class="poster-crop-card">
+        <div class="section-heading section-heading--actions">
+          <div>
+            <h2>调整视觉图裁切</h2>
+            <p class="poster-section-note" id="crop-item-title"></p>
+          </div>
+          <button class="bgm-button bgm-button--secondary" value="cancel" type="submit">完成</button>
+        </div>
+        <div class="poster-crop-frame">
+          <canvas id="poster-crop-canvas" width="699" height="136"></canvas>
+        </div>
+        <label class="field" for="crop-zoom">
+          <span class="field__label">缩放</span>
+          <input id="crop-zoom" type="range" min="1" max="4" step="0.01" value="1" />
+        </label>
+        <div class="poster-crop-actions">
+          <button class="bgm-button bgm-button--secondary" id="reset-crop" type="button">恢复居中</button>
+          <span class="poster-section-note">在画面上拖动即可平移，滚轮也可以缩放。</span>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="src/poster-editor.js"></script>
+  </body>
+</html>
