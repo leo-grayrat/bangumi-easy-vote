@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Render the standalone ranking poster with Pillow.
-
-The geometry is calibrated against the Anime Corner reference poster used by
-this project. The renderer remains independent from the voting HTML and emits
-an RGBA PNG so users can compose their own background later.
-"""
+"""Render the standalone ranking poster with Pillow."""
 
 from __future__ import annotations
 
@@ -31,8 +26,8 @@ class Layout:
     visual_w: int = 699
     stats_w: int = 345
     right: int = 1176
-    stats_split: int = 185
-    stats_foot_h: int = 22
+    stats_split: int = 158
+    stats_foot_h: int = 34
     stats_head_y: int = 146
     stats_head_h: int = 22
     footer_top: int = 1650
@@ -55,10 +50,10 @@ COLORS = {
     "rank_normal": (239, 148, 72),
     "white": (255, 255, 255),
     "black": (0, 0, 0),
-    "bgm": (255, 176, 24),
+    "aux": (244, 244, 244),
     "trend_up": (54, 193, 32),
-    "trend_flat": (230, 230, 230),
-    "trend_down": (255, 104, 111),
+    "trend_flat": (255, 176, 24),
+    "trend_down": (238, 31, 31),
     "label_red": (221, 0, 0),
 }
 
@@ -97,25 +92,26 @@ def _font(candidates: Iterable[str | None], size: int) -> ImageFont.FreeTypeFont
 def load_fonts(cfg: dict | None = None) -> dict[str, ImageFont.ImageFont]:
     cfg = cfg or {}
     font_cfg = cfg.get("fonts", {}) or {}
-    latin_heavy = [font_cfg.get("latin"), os.getenv("RANKING_FONT_LATIN"), *LATIN_HEAVY_DEFAULTS]
-    cjk_heavy = [font_cfg.get("cjk"), os.getenv("RANKING_FONT_CJK"), *CJK_HEAVY_DEFAULTS]
-    cjk_regular = [
+    latin = [font_cfg.get("latin"), os.getenv("RANKING_FONT_LATIN"), *LATIN_HEAVY_DEFAULTS]
+    cjk = [font_cfg.get("cjk"), os.getenv("RANKING_FONT_CJK"), *CJK_HEAVY_DEFAULTS]
+    regular = [
         font_cfg.get("cjk_regular"),
         os.getenv("RANKING_FONT_CJK_REGULAR"),
         *CJK_REGULAR_DEFAULTS,
-        *cjk_heavy,
+        *cjk,
     ]
     return {
-        "header_title": _font(font_candidates(font_cfg, "header_title", cjk_heavy + latin_heavy), 60),
-        "header_subtitle": _font(font_candidates(font_cfg, "header_subtitle", latin_heavy + cjk_heavy), 34),
-        "brand": _font(font_candidates(font_cfg, "brand", cjk_heavy + latin_heavy), 34),
-        "rank": _font(font_candidates(font_cfg, "rank", latin_heavy + cjk_heavy), 74),
-        "anime": _font(font_candidates(font_cfg, "anime", cjk_heavy + latin_heavy), 36),
-        "anime_small": _font(font_candidates(font_cfg, "anime_small", cjk_heavy + latin_heavy), 31),
-        "label": _font(font_candidates(font_cfg, "label", latin_heavy + cjk_heavy), 14),
-        "metric": _font(font_candidates(font_cfg, "metric", latin_heavy + cjk_heavy), 46),
-        "small": _font(font_candidates(font_cfg, "small", cjk_heavy + latin_heavy), 14),
-        "footer": _font(font_candidates(font_cfg, "footer", cjk_regular + latin_heavy), 25),
+        "header_title": _font(font_candidates(font_cfg, "header_title", cjk + latin), 60),
+        "header_subtitle": _font(font_candidates(font_cfg, "header_subtitle", latin + cjk), 34),
+        "brand": _font(font_candidates(font_cfg, "brand", cjk + latin), 34),
+        "rank": _font(font_candidates(font_cfg, "rank", latin + cjk), 74),
+        "anime": _font(font_candidates(font_cfg, "anime", cjk + latin), 36),
+        "anime_small": _font(font_candidates(font_cfg, "anime_small", cjk + latin), 31),
+        "label": _font(font_candidates(font_cfg, "label", latin + cjk), 14),
+        "metric": _font(font_candidates(font_cfg, "metric", latin + cjk), 46),
+        "trend_delta": _font(font_candidates(font_cfg, "trend_delta", latin + cjk), 34),
+        "aux": _font(font_candidates(font_cfg, "aux", cjk + latin), 15),
+        "footer": _font(font_candidates(font_cfg, "footer", regular + latin), 25),
     }
 
 
@@ -133,22 +129,32 @@ def trend_state(score: float, bgm_score: float, mode: str, thresholds: dict | No
     thresholds = thresholds or {}
     delta = float(score) - float(bgm_score)
     if mode == "red":
-        up = float(thresholds.get("red_up", 1.0))
-        down = float(thresholds.get("red_down", 0.4))
-        if delta >= up:
+        if delta >= float(thresholds.get("red_up", 1.0)):
             return "up"
-        if delta < down:
+        if delta < float(thresholds.get("red_down", 0.4)):
             return "down"
         return "flat"
     if mode == "black":
-        up = float(thresholds.get("black_up", -0.4))
-        down = float(thresholds.get("black_down", -1.0))
-        if delta > up:
+        if delta > float(thresholds.get("black_up", -0.4)):
             return "up"
-        if delta <= down:
+        if delta <= float(thresholds.get("black_down", -1.0)):
             return "down"
         return "flat"
     raise ValueError("mode must be 'red' or 'black'")
+
+
+def comparison_values(item: dict, mode: str, thresholds: dict | None) -> tuple[str, str, str]:
+    """Return BGM label, numeric delta and state; arrows are drawn separately."""
+    bgm = item.get("bgm_score")
+    if bgm is None:
+        return "BGM --", "—", "flat"
+    bgm = float(bgm)
+    delta = float(item.get("score", 0)) - bgm
+    return (
+        f"BGM {bgm:.2f}",
+        f"{delta:+.2f}",
+        trend_state(float(item.get("score", 0)), bgm, mode, thresholds),
+    )
 
 
 def crop_cover(img: Image.Image, size: tuple[int, int], focus=(0.5, 0.5)) -> Image.Image:
@@ -176,7 +182,13 @@ def placeholder(size: tuple[int, int], seed: int) -> Image.Image:
     return img
 
 
-def fit_text(draw: ImageDraw.ImageDraw, text: str, fonts: list[ImageFont.ImageFont], max_width: int, max_lines: int = 2):
+def fit_text(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    fonts: list[ImageFont.ImageFont],
+    max_width: int,
+    max_lines: int = 2,
+):
     for font in fonts:
         if draw.textbbox((0, 0), text, font=font)[2] <= max_width:
             return [text], font
@@ -197,11 +209,73 @@ def fit_text(draw: ImageDraw.ImageDraw, text: str, fonts: list[ImageFont.ImageFo
         if len(lines) <= max_lines and "".join(lines) == text:
             return lines, font
     fallback = fonts[-1]
-    ellipsis = "…"
     current = text
-    while current and draw.textbbox((0, 0), current + ellipsis, font=fallback)[2] > max_width:
+    while current and draw.textbbox((0, 0), current + "…", font=fallback)[2] > max_width:
         current = current[:-1]
-    return [current + ellipsis], fallback
+    return [current + "…"], fallback
+
+
+def _center_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, box, fill):
+    x1, y1, x2, y2 = box
+    bounds = draw.textbbox((0, 0), text, font=font)
+    width = bounds[2] - bounds[0]
+    height = bounds[3] - bounds[1]
+    draw.text(
+        ((x1 + x2 - width) / 2 - bounds[0], (y1 + y2 - height) / 2 - bounds[1]),
+        text,
+        font=font,
+        fill=fill,
+    )
+
+
+def draw_trend_icon(draw: ImageDraw.ImageDraw, state: str, box) -> None:
+    """Draw the reference-style double arrows as geometry, not font glyphs."""
+    x1, y1, x2, y2 = box
+    color = COLORS[f"trend_{state}"]
+    line_width = max(4, round((x2 - x1) * 0.07))
+    head = max(7, round((x2 - x1) * 0.14))
+
+    if state in ("up", "down"):
+        xs = (x1 + (x2 - x1) * 0.34, x1 + (x2 - x1) * 0.68)
+        top = y1 + 5
+        bottom = y2 - 5
+        for x in xs:
+            if state == "up":
+                draw.line((x, bottom, x, top + head), fill=color, width=line_width)
+                draw.line(
+                    (x - head, top + head, x, top, x + head, top + head),
+                    fill=color,
+                    width=line_width,
+                    joint="curve",
+                )
+            else:
+                draw.line((x, top, x, bottom - head), fill=color, width=line_width)
+                draw.line(
+                    (x - head, bottom - head, x, bottom, x + head, bottom - head),
+                    fill=color,
+                    width=line_width,
+                    joint="curve",
+                )
+        return
+
+    left = x1 + 6
+    right = x2 - 6
+    y_top = y1 + (y2 - y1) * 0.36
+    y_bottom = y1 + (y2 - y1) * 0.68
+    draw.line((left, y_top, right - head, y_top), fill=color, width=line_width)
+    draw.line(
+        (right - head, y_top - head, right, y_top, right - head, y_top + head),
+        fill=color,
+        width=line_width,
+        joint="curve",
+    )
+    draw.line((right, y_bottom, left + head, y_bottom), fill=color, width=line_width)
+    draw.line(
+        (left + head, y_bottom - head, left, y_bottom, left + head, y_bottom + head),
+        fill=color,
+        width=line_width,
+        joint="curve",
+    )
 
 
 def draw_header(draw: ImageDraw.ImageDraw, fonts, cfg):
@@ -213,30 +287,33 @@ def draw_header(draw: ImageDraw.ImageDraw, fonts, cfg):
     draw.text((365, 84), cfg.get("subtitle", "2026 MID-SEASON RESULTS"), font=fonts["header_subtitle"], fill=COLORS["white"])
 
 
-def draw_stats_column_headers(draw: ImageDraw.ImageDraw, fonts):
-    """Draw the labels entirely in the 22 px gap above row 1."""
+def draw_stats_column_headers(draw: ImageDraw.ImageDraw, fonts, cfg):
     x1 = L.stats_x
     split = x1 + L.stats_split
     y = L.stats_head_y
-    bottom = y + L.stats_head_h - 1
-    draw.rectangle((x1, y, split - 1, bottom), fill=COLORS["label_red"])
-    draw.rectangle((split, y, L.right - 1, bottom), fill=COLORS["white"])
-    draw.text((x1 + 10, y + 2), "AVERAGE SCORE", font=fonts["label"], fill=COLORS["white"])
-    draw.text((split + 12, y + 2), "RATERS", font=fonts["label"], fill=COLORS["black"])
+    bottom = y + L.stats_head_h
+    draw.rectangle((x1, y, split - 1, bottom - 1), fill=COLORS["label_red"])
+    draw.rectangle((split, y, L.right - 1, bottom - 1), fill=COLORS["white"])
+    _center_text(draw, "AVERAGE SCORE", fonts["label"], (x1, y, split, bottom), COLORS["white"])
+    _center_text(
+        draw,
+        cfg.get("comparison_label", "VS BANGUMI"),
+        fonts["label"],
+        (split, y, L.right, bottom),
+        COLORS["black"],
+    )
 
 
-def _trend_label(item: dict, mode: str, thresholds: dict | None) -> tuple[str, str, float | None]:
-    bgm = item.get("bgm_score")
-    if bgm is None:
-        return "BGM --", "—", None
-    bgm = float(bgm)
-    delta = float(item.get("score", 0)) - bgm
-    state = trend_state(float(item.get("score", 0)), bgm, mode, thresholds)
-    arrow = {"up": "↑", "flat": "→", "down": "↓"}[state]
-    return f"BGM {bgm:.2f}", f"{arrow} {delta:+.2f}", delta
-
-
-def draw_row(canvas: Image.Image, draw: ImageDraw.ImageDraw, fonts, item: dict, idx: int, assets: Path, mode: str, thresholds: dict | None):
+def draw_row(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    fonts,
+    item: dict,
+    idx: int,
+    assets: Path,
+    mode: str,
+    thresholds: dict | None,
+):
     y = L.row_y[idx]
     rank_x1 = L.left
     rank_x2 = rank_x1 + L.rank_w
@@ -244,8 +321,9 @@ def draw_row(canvas: Image.Image, draw: ImageDraw.ImageDraw, fonts, item: dict, 
     visual_x2 = visual_x1 + L.visual_w
     stats_x1 = visual_x2
     stats_x2 = L.right
-    bottom = y + L.row_h
     split = stats_x1 + L.stats_split
+    bottom = y + L.row_h
+    foot_y = bottom - L.stats_foot_h
 
     draw.rectangle((rank_x1 + 3, bottom, stats_x2 + 2, bottom + 4), fill=(48, 70, 72, 150))
     rank_color = COLORS["rank_top"] if idx < 3 else COLORS["rank_normal"]
@@ -267,13 +345,12 @@ def draw_row(canvas: Image.Image, draw: ImageDraw.ImageDraw, fonts, item: dict, 
         horiz = 78 * (1 - x / max(1, L.visual_w - 1))
         for yy in range(L.row_h):
             vert = 64 * (yy / max(1, L.row_h - 1))
-            alpha = round(min(145, 18 + horiz + vert))
-            vd.point((x, yy), fill=(0, 0, 0, alpha))
+            vd.point((x, yy), fill=(0, 0, 0, round(min(145, 18 + horiz + vert))))
     canvas.alpha_composite(veil, (visual_x1, y))
 
     rank = str(idx + 1)
-    rb = draw.textbbox((0, 0), rank, font=fonts["rank"])
-    rw, rh = rb[2] - rb[0], rb[3] - rb[1]
+    rank_box = draw.textbbox((0, 0), rank, font=fonts["rank"])
+    rw, rh = rank_box[2] - rank_box[0], rank_box[3] - rank_box[1]
     draw.text(
         (rank_x1 + (L.rank_w - rw) / 2, y + (L.row_h - rh) / 2 - 8),
         rank,
@@ -282,7 +359,13 @@ def draw_row(canvas: Image.Image, draw: ImageDraw.ImageDraw, fonts, item: dict, 
     )
 
     title = str(item.get("title", "UNTITLED"))
-    lines, anime_font = fit_text(draw, title, [fonts["anime"], fonts["anime_small"]], L.visual_w - 44, 2)
+    lines, anime_font = fit_text(
+        draw,
+        title,
+        [fonts["anime"], fonts["anime_small"]],
+        L.visual_w - 44,
+        2,
+    )
     line_h = 39 if anime_font is fonts["anime"] else 34
     title_y = bottom - 16 - line_h * len(lines)
     for line_no, line in enumerate(lines):
@@ -292,47 +375,46 @@ def draw_row(canvas: Image.Image, draw: ImageDraw.ImageDraw, fonts, item: dict, 
             font=anime_font,
             fill=COLORS["white"],
             stroke_width=1,
-            stroke_fill=(0, 0, 0),
+            stroke_fill=COLORS["black"],
         )
 
-    score = f'{float(item.get("score", 0)):.2f}'
-    voters = f'{int(item.get("voters", 0))}'
-    score_box = draw.textbbox((0, 0), score, font=fonts["metric"])
-    voters_box = draw.textbbox((0, 0), voters, font=fonts["metric"])
-    draw.text(
-        (stats_x1 + (L.stats_split - (score_box[2] - score_box[0])) / 2, y + 40),
-        score,
-        font=fonts["metric"],
-        fill=COLORS["white"],
-    )
-    draw.text(
-        (split + ((stats_x2 - split) - (voters_box[2] - voters_box[0])) / 2, y + 40),
-        voters,
-        font=fonts["metric"],
-        fill=COLORS["white"],
+    _center_text(
+        draw,
+        f'{float(item.get("score", 0)):.2f}',
+        fonts["metric"],
+        (stats_x1, y, split, foot_y),
+        COLORS["white"],
     )
 
-    bgm_label, trend_label, _ = _trend_label(item, mode, thresholds)
-    state = "flat" if item.get("bgm_score") is None else trend_state(item["score"], item["bgm_score"], mode, thresholds)
-    foot_y = bottom - L.stats_foot_h
-    draw.rectangle((stats_x1, foot_y, split - 1, bottom - 1), fill=COLORS["bgm"])
-    draw.rectangle((split, foot_y, stats_x2 - 1, bottom - 1), fill=COLORS[f"trend_{state}"])
+    bgm_label, delta_label, state = comparison_values(item, mode, thresholds)
+    icon_left = split + 8
+    icon_right = min(split + 74, stats_x2 - 92)
+    draw_trend_icon(draw, state, (icon_left, y + 19, icon_right, foot_y - 16))
+    _center_text(
+        draw,
+        delta_label,
+        fonts["trend_delta"],
+        (icon_right + 4, y, stats_x2 - 4, foot_y),
+        COLORS["white"],
+    )
 
-    left_box = draw.textbbox((0, 0), bgm_label, font=fonts["small"])
-    right_box = draw.textbbox((0, 0), trend_label, font=fonts["small"])
-    left_w = left_box[2] - left_box[0]
-    right_w = right_box[2] - right_box[0]
-    draw.text((stats_x1 + (L.stats_split - left_w) / 2, foot_y + 2), bgm_label, font=fonts["small"], fill=COLORS["black"])
-    draw.text((split + ((stats_x2 - split) - right_w) / 2, foot_y + 2), trend_label, font=fonts["small"], fill=COLORS["black"])
+    draw.rectangle((stats_x1, foot_y, stats_x2 - 1, bottom - 1), fill=COLORS["aux"])
+    voters_label = f'投票数 {int(item.get("voters", 0))}'
+    draw.text((stats_x1 + 12, foot_y + 8), voters_label, font=fonts["aux"], fill=COLORS["black"])
+    bgm_box = draw.textbbox((0, 0), bgm_label, font=fonts["aux"])
+    draw.text(
+        (stats_x2 - 12 - (bgm_box[2] - bgm_box[0]), foot_y + 8),
+        bgm_label,
+        font=fonts["aux"],
+        fill=COLORS["black"],
+    )
 
 
 def draw_footer(draw: ImageDraw.ImageDraw, fonts, cfg):
     footer = cfg.get("footer", "基于本次有效问卷统计 · 补丁已纳入")
-    detail = cfg.get("footer_detail", "BGM 为 Bangumi 当前评分 · 箭头按红榜/黑榜规则比较")
-    box = draw.textbbox((0, 0), footer, font=fonts["footer"])
-    draw.text(((L.width - (box[2] - box[0])) / 2, L.footer_top + 42), footer, font=fonts["footer"], fill=COLORS["black"])
-    box2 = draw.textbbox((0, 0), detail, font=fonts["footer"])
-    draw.text(((L.width - (box2[2] - box2[0])) / 2, L.footer_top + 80), detail, font=fonts["footer"], fill=(35, 126, 165))
+    detail = cfg.get("footer_detail", "BGM 为 Bangumi 当前评分")
+    _center_text(draw, footer, fonts["footer"], (0, L.footer_top + 25, L.width, L.footer_top + 75), COLORS["black"])
+    _center_text(draw, detail, fonts["footer"], (0, L.footer_top + 65, L.width, L.footer_top + 115), (35, 126, 165))
 
 
 def render(cfg: dict, out: Path):
@@ -348,7 +430,7 @@ def render(cfg: dict, out: Path):
     for idx, item in enumerate(items):
         draw_row(canvas, draw, fonts, item, idx, assets, mode, thresholds)
 
-    draw_stats_column_headers(draw, fonts)
+    draw_stats_column_headers(draw, fonts, cfg)
     draw_footer(draw, fonts, cfg)
 
     out.parent.mkdir(parents=True, exist_ok=True)
