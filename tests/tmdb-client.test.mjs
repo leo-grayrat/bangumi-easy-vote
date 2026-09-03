@@ -9,6 +9,7 @@ function jsonResponse(value, status = 200) {
 test('detects bearer token and v3 api key credentials', () => {
   assert.deepEqual(resolveTmdbCredential('eyJhbGciOiJIUzI1NiJ9.payload.sig'), { type: 'bearer', value: 'eyJhbGciOiJIUzI1NiJ9.payload.sig' });
   assert.deepEqual(resolveTmdbCredential('0123456789abcdef0123456789abcdef'), { type: 'apiKey', value: '0123456789abcdef0123456789abcdef' });
+  assert.deepEqual(resolveTmdbCredential('Bearer eyJ.foo.bar'), { type: 'bearer', value: 'eyJ.foo.bar' });
   assert.equal(resolveTmdbCredential(''), null);
 });
 
@@ -33,7 +34,7 @@ test('artwork returns series images plus three most recent aired episode stills 
       { season_number: 1, air_date: '2026-01-01', episode_count: 2 },
       { season_number: 2, air_date: '2026-07-01', episode_count: 2 },
     ] }],
-    ['/3/tv/77/images?include_image_language=zh%2Cen%2Cnull', { backdrops: [{ file_path: '/bg.jpg', width: 1920, height: 1080, vote_average: 5.1 }], posters: [{ file_path: '/poster.jpg', width: 1000, height: 1500 }], logos: [{ file_path: '/logo.png', width: 800, height: 300 }] }],
+    ['/3/tv/77/images?include_image_language=zh%2Cen%2Cja%2Cnull', { backdrops: [{ file_path: '/bg.jpg', width: 1920, height: 1080, vote_average: 5.1 }], posters: [{ file_path: '/poster.jpg', width: 1000, height: 1500 }], logos: [{ file_path: '/logo.png', width: 800, height: 300 }] }],
     ['/3/tv/77/season/2?language=zh-CN', { episodes: [
       { episode_number: 1, name: 'S2E1', air_date: '2026-07-01', still_path: '/s2e1.jpg' },
       { episode_number: 2, name: 'S2E2', air_date: '2026-07-08', still_path: '/s2e2.jpg' },
