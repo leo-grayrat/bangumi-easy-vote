@@ -1,30 +1,44 @@
 :root {
-  --poster-w: 1024px;
-  --poster-h: 1536px;
-  --header-h: 125px;
-  --list-top: 143px;
-  --list-left: 18px;
-  --list-right: 20px;
-  --row-h: 118px;
-  --row-gap: 9px;
-  --rank-w: 95px;
-  --visual-w: 596px;
-  --stats-w: 295px;
-  --footer-top: 1424px;
+  /* 1200×1800 reference poster geometry */
+  --poster-w: 1200px;
+  --poster-h: 1800px;
+  --header-h: 146px;
+  --brand-w: 344px;
 
-  --c-header: #060608;
-  --c-bg: #cef5f4;
-  --c-stat: #1f1f1f;
-  --c-rank-top: #ff6671;
-  --c-rank-normal: #f2913b;
-  --c-accent: #3bc0d5;
-  --c-footer: #ffe8c6;
-  --c-positive: #23be36;
+  --list-left: 22px;
+  --rank-w: 110px;
+  --visual-w: 699px;
+  --stats-w: 345px;
+  --row-h: 136px;
+  --footer-top: 1650px;
+
+  /* Measured starts from the 2026 reference; do not replace with a single
+     accumulated grid gap unless the resulting drift is rechecked. */
+  --row-1-y: 168px;
+  --row-2-y: 317px;
+  --row-3-y: 467px;
+  --row-4-y: 616px;
+  --row-5-y: 766px;
+  --row-6-y: 915px;
+  --row-7-y: 1065px;
+  --row-8-y: 1214px;
+  --row-9-y: 1364px;
+  --row-10-y: 1514px;
+
+  --c-header: #000000;
+  --c-bg: #6ad2d6;
+  --c-stat: #1e1e1e;
+  --c-rank-top: #ff686f;
+  --c-rank-normal: #ef9448;
+  --c-footer: #ffe9cc;
+  --c-yellow: #ffb018;
+  --c-green: #36c120;
+  --c-label-red: #dd0000;
 }
 
 /*
  * Standalone geometry reference for the poster renderer.
- * Not wired into the voting page yet.
+ * It is deliberately not wired into the voting page yet.
  */
 .ranking-poster {
   position: relative;
@@ -42,34 +56,53 @@
   background: var(--c-header);
 }
 
+.ranking-poster__brand {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: var(--brand-w);
+  height: var(--header-h);
+  background: var(--c-rank-top);
+}
+
 .ranking-poster__rows {
   position: absolute;
-  left: var(--list-left);
-  right: var(--list-right);
-  top: var(--list-top);
-  display: grid;
-  grid-template-rows: repeat(10, var(--row-h));
-  gap: var(--row-gap);
+  inset: 0;
 }
 
 .ranking-row {
+  position: absolute;
+  left: var(--list-left);
   display: grid;
   grid-template-columns: var(--rank-w) var(--visual-w) var(--stats-w);
+  width: calc(var(--rank-w) + var(--visual-w) + var(--stats-w));
   height: var(--row-h);
+  filter: drop-shadow(3px 4px 0 rgba(48, 70, 72, .45));
 }
+
+.ranking-row:nth-child(1)  { top: var(--row-1-y); }
+.ranking-row:nth-child(2)  { top: var(--row-2-y); }
+.ranking-row:nth-child(3)  { top: var(--row-3-y); }
+.ranking-row:nth-child(4)  { top: var(--row-4-y); }
+.ranking-row:nth-child(5)  { top: var(--row-5-y); }
+.ranking-row:nth-child(6)  { top: var(--row-6-y); }
+.ranking-row:nth-child(7)  { top: var(--row-7-y); }
+.ranking-row:nth-child(8)  { top: var(--row-8-y); }
+.ranking-row:nth-child(9)  { top: var(--row-9-y); }
+.ranking-row:nth-child(10) { top: var(--row-10-y); }
 
 .ranking-row__rank {
   display: grid;
   place-items: center;
   background: var(--c-rank-normal);
-  font-size: 60px;
-  font-weight: 800;
+  color: #000;
+  font-size: 74px;
+  font-weight: 900;
   line-height: 1;
 }
 
 .ranking-row:nth-child(-n+3) .ranking-row__rank {
   background: var(--c-rank-top);
-  color: white;
+  color: #fff;
 }
 
 .ranking-row__visual {
@@ -88,7 +121,9 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, rgba(0,0,0,.46), rgba(0,0,0,.08));
+  background:
+    linear-gradient(to top, rgba(0,0,0,.42), rgba(0,0,0,.05) 70%),
+    linear-gradient(to right, rgba(0,0,0,.34), rgba(0,0,0,.06));
   pointer-events: none;
 }
 
@@ -97,47 +132,49 @@
   z-index: 1;
   left: 20px;
   right: 24px;
-  bottom: 18px;
+  bottom: 16px;
   color: #fff;
-  font-size: 31px;
+  font-size: 36px;
   font-weight: 800;
-  line-height: 1.08;
+  line-height: 1.05;
   text-shadow: 0 1px 2px rgba(0,0,0,.9);
 }
 
 .ranking-row__stats {
   position: relative;
+  display: grid;
+  grid-template-columns: 185px 160px;
+  align-items: center;
   background: var(--c-stat);
+  color: white;
+  font-size: 46px;
+  font-weight: 900;
+}
+
+/* The reference shows column labels once, above row 1, not once per row. */
+.ranking-poster__stats-head {
+  position: absolute;
+  z-index: 4;
+  left: calc(var(--list-left) + var(--rank-w) + var(--visual-w));
+  top: 156px;
+  display: grid;
+  grid-template-columns: 185px 160px;
+  width: var(--stats-w);
+  height: 28px;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.ranking-poster__stats-head > :first-child {
+  padding: 4px 12px;
+  background: var(--c-label-red);
   color: white;
 }
 
-.ranking-row__stats-head {
-  height: 27px;
-  display: grid;
-  grid-template-columns: 145px 1fr;
-  font-size: 15px;
-  font-weight: 800;
-}
-
-.ranking-row__stats-head > :first-child {
-  padding: 4px 10px;
-  background: var(--c-rank-top);
-}
-
-.ranking-row__stats-head > :last-child {
-  padding: 4px 12px;
-  color: #000;
-  background: #fff;
-}
-
-.ranking-row__stats-main {
-  display: grid;
-  grid-template-columns: 145px 1fr;
-  align-items: center;
-  height: 75px;
-  padding: 0 18px;
-  font-size: 39px;
-  font-weight: 800;
+.ranking-poster__stats-head > :last-child {
+  padding: 4px 14px;
+  background: white;
+  color: black;
 }
 
 .ranking-row__stats-foot {
@@ -145,21 +182,25 @@
   left: 0;
   right: 0;
   bottom: 0;
-  height: 16px;
-  padding-left: 10px;
-  background: var(--c-positive);
+  display: grid;
+  grid-template-columns: 185px 160px;
+  height: 20px;
   color: #000;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
-  line-height: 16px;
+  line-height: 20px;
+  text-align: center;
 }
+
+.ranking-row__stats-foot > :first-child { background: var(--c-yellow); }
+.ranking-row__stats-foot > :last-child  { background: var(--c-green); }
 
 .ranking-poster__footer {
   position: absolute;
   inset: var(--footer-top) 0 0 0;
   display: grid;
   place-items: start center;
-  padding-top: 44px;
+  padding-top: 42px;
   background: var(--c-footer);
-  font-size: 21px;
+  font-size: 25px;
 }
