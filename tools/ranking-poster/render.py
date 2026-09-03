@@ -36,6 +36,7 @@ class Layout:
     stats_head_y: int = 146
     stats_head_h: int = 22
     header_line_gap: int = 18
+    delta_minus_y_offset: int = 4
     footer_top: int = 1650
 
     @property
@@ -62,6 +63,20 @@ COLORS = {
     "label_red": (221, 0, 0),
 }
 
+DEFAULT_FONT_SIZES = {
+    "header_title": 60,
+    "header_subtitle": 34,
+    "brand": 34,
+    "rank": 74,
+    "anime": 36,
+    "anime_small": 31,
+    "label": 14,
+    "metric": 46,
+    "trend_delta": 34,
+    "aux": 14,
+    "footer": 25,
+}
+
 LATIN_HEAVY_DEFAULTS = [
     "/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed-Bold.ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
@@ -70,7 +85,7 @@ LATIN_HEAVY_DEFAULTS = [
 CJK_HEAVY_DEFAULTS = [
     "/usr/share/opentype/noto/NotoSansCJK-Bold.ttc",
     "/usr/share/opentype/noto/NotoSansCJK-Regular.ttc",
-    "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+    "/usr/share/truetype/wqy/wqy-zenhei.ttc",
 ]
 CJK_REGULAR_DEFAULTS = [
     "/usr/share/opentype/noto/NotoSansCJK-Regular.ttc",
@@ -99,6 +114,11 @@ def _font(candidates: Iterable[str | None], size: int, *, preferred_ttc_index: i
     return ImageFont.load_default()
 
 
+def _font_size(cfg: dict, role: str) -> int:
+    sizes = cfg.get("font_sizes", {}) or {}
+    return int(sizes.get(role, DEFAULT_FONT_SIZES[role]))
+
+
 def load_fonts(cfg: dict | None = None) -> dict[str, ImageFont.ImageFont]:
     cfg = cfg or {}
     font_cfg = cfg.get("fonts", {}) or {}
@@ -106,17 +126,17 @@ def load_fonts(cfg: dict | None = None) -> dict[str, ImageFont.ImageFont]:
     cjk = [font_cfg.get("cjk"), os.getenv("RANKING_FONT_CJK"), *CJK_HEAVY_DEFAULTS]
     regular = [font_cfg.get("cjk_regular"), os.getenv("RANKING_FONT_CJK_REGULAR"), *CJK_REGULAR_DEFAULTS, *cjk]
     return {
-        "header_title": _font(font_candidates(font_cfg, "header_title", cjk + latin), 60, preferred_ttc_index=2),
-        "header_subtitle": _font(font_candidates(font_cfg, "header_subtitle", latin + cjk), 34),
-        "brand": _font(font_candidates(font_cfg, "brand", cjk + latin), 34, preferred_ttc_index=2),
-        "rank": _font(font_candidates(font_cfg, "rank", latin + cjk), 74),
-        "anime": _font(font_candidates(font_cfg, "anime", cjk + latin), 36, preferred_ttc_index=2),
-        "anime_small": _font(font_candidates(font_cfg, "anime_small", cjk + latin), 31, preferred_ttc_index=2),
-        "label": _font(font_candidates(font_cfg, "label", latin + cjk), 14),
-        "metric": _font(font_candidates(font_cfg, "metric", latin + cjk), 46),
-        "trend_delta": _font(font_candidates(font_cfg, "trend_delta", latin + cjk), 34),
-        "aux": _font(font_candidates(font_cfg, "aux", cjk + latin), 14, preferred_ttc_index=2),
-        "footer": _font(font_candidates(font_cfg, "footer", regular + latin), 25, preferred_ttc_index=2),
+        "header_title": _font(font_candidates(font_cfg, "header_title", cjk + latin), _font_size(cfg, "header_title"), preferred_ttc_index=2),
+        "header_subtitle": _font(font_candidates(font_cfg, "header_subtitle", latin + cjk), _font_size(cfg, "header_subtitle")),
+        "brand": _font(font_candidates(font_cfg, "brand", cjk + latin), _font_size(cfg, "brand"), preferred_ttc_index=2),
+        "rank": _font(font_candidates(font_cfg, "rank", latin + cjk), _font_size(cfg, "rank")),
+        "anime": _font(font_candidates(font_cfg, "anime", cjk + latin), _font_size(cfg, "anime"), preferred_ttc_index=2),
+        "anime_small": _font(font_candidates(font_cfg, "anime_small", cjk + latin), _font_size(cfg, "anime_small"), preferred_ttc_index=2),
+        "label": _font(font_candidates(font_cfg, "label", latin + cjk), _font_size(cfg, "label")),
+        "metric": _font(font_candidates(font_cfg, "metric", latin + cjk), _font_size(cfg, "metric")),
+        "trend_delta": _font(font_candidates(font_cfg, "trend_delta", latin + cjk), _font_size(cfg, "trend_delta")),
+        "aux": _font(font_candidates(font_cfg, "aux", cjk + latin), _font_size(cfg, "aux"), preferred_ttc_index=2),
+        "footer": _font(font_candidates(font_cfg, "footer", regular + latin), _font_size(cfg, "footer"), preferred_ttc_index=2),
     }
 
 
@@ -236,8 +256,7 @@ def resolve_title_lines(draw, item: dict, fonts: dict, max_width: int):
     """Use an explicit per-item line break only when one is provided."""
     explicit = item.get("title_lines")
     if explicit:
-        lines = [str(line) for line in explicit if str(line)]
-        lines = lines[:2]
+        lines = [str(line) for line in explicit if str(line)][:2]
         for font in (fonts["anime"], fonts["anime_small"]):
             if all(draw.textbbox((0, 0), line, font=font)[2] <= max_width for line in lines):
                 return lines, font
@@ -267,7 +286,7 @@ def _draw_text_top(draw, text: str, font, x: int, top: int, fill):
 def header_text_layout(draw: ImageDraw.ImageDraw, fonts, cfg) -> dict[str, int | str]:
     """Measure the two-line title block and center it vertically in the header."""
     title = cfg.get("title", "7月新番中期评分 TOP 10")
-    subtitle = cfg.get("subtitle", "2026 MID-SEASON RESULTS")
+    subtitle = cfg.get("subtitle", "MID-SEASON TOP 10 ANIME")
     title_box = draw.textbbox((0, 0), title, font=fonts["header_title"])
     subtitle_box = draw.textbbox((0, 0), subtitle, font=fonts["header_subtitle"])
     title_h = title_box[3] - title_box[1]
@@ -292,12 +311,8 @@ def draw_header(draw: ImageDraw.ImageDraw, fonts, cfg):
     draw.rectangle((0, 0, L.brand_w - 1, L.header_h - 1), fill=brand_color)
 
     layout = header_text_layout(draw, fonts, cfg)
-    _draw_text_top(
-        draw, layout["title"], fonts["header_title"], 365, layout["title_top"], COLORS["white"]
-    )
-    _draw_text_top(
-        draw, layout["subtitle"], fonts["header_subtitle"], 365, layout["subtitle_top"], COLORS["white"]
-    )
+    _draw_text_top(draw, layout["title"], fonts["header_title"], 365, layout["title_top"], COLORS["white"])
+    _draw_text_top(draw, layout["subtitle"], fonts["header_subtitle"], 365, layout["subtitle_top"], COLORS["white"])
 
 
 def draw_stats_column_headers(draw: ImageDraw.ImageDraw, fonts, cfg):
@@ -309,7 +324,7 @@ def draw_stats_column_headers(draw: ImageDraw.ImageDraw, fonts, cfg):
     _center_text(draw, cfg.get("comparison_label", "VS BANGUMI"), fonts["label"], (split, y, L.right, bottom), COLORS["black"])
 
 
-def draw_delta_text(draw: ImageDraw.ImageDraw, label: str, font, box, fill) -> None:
+def draw_delta_text(draw: ImageDraw.ImageDraw, label: str, font, box, fill, *, minus_y_offset: int = 0) -> None:
     """Center a delta while reserving an equal-width slot for + and minus."""
     x1, y1, x2, y2 = box
     sign, magnitude = delta_parts(label)
@@ -319,11 +334,12 @@ def draw_delta_text(draw: ImageDraw.ImageDraw, label: str, font, box, fill) -> N
     total_w = sign_w + mag_w
     left = (x1 + x2 - total_w) / 2
     if sign:
-        _center_text(draw, sign, font, (left, y1, left + sign_w, y2), fill)
+        offset = minus_y_offset if sign == "−" else 0
+        _center_text(draw, sign, font, (left, y1 + offset, left + sign_w, y2 + offset), fill)
     _center_text(draw, magnitude, font, (left + sign_w, y1, left + sign_w + mag_w, y2), fill)
 
 
-def draw_row(canvas, draw, fonts, item: dict, idx: int, assets: Path, mode: str, thresholds: dict | None):
+def draw_row(canvas, draw, fonts, item: dict, idx: int, assets: Path, mode: str, thresholds: dict | None, cfg: dict):
     y = L.row_y[idx]
     rank_x1, rank_x2 = L.left, L.left + L.rank_w
     visual_x1, visual_x2 = rank_x2, rank_x2 + L.visual_w
@@ -370,7 +386,14 @@ def draw_row(canvas, draw, fonts, item: dict, idx: int, assets: Path, mode: str,
 
     bgm_label, delta_label, state = comparison_values(item, mode, thresholds)
     paste_trend_icon(canvas, state, (split + 6, y + 27, split + 78, y + 91))
-    draw_delta_text(draw, delta_label, fonts["trend_delta"], (split + 79, y, stats_x2 - 4, foot_y), COLORS["white"])
+    draw_delta_text(
+        draw,
+        delta_label,
+        fonts["trend_delta"],
+        (split + 79, y, stats_x2 - 4, foot_y),
+        COLORS["white"],
+        minus_y_offset=int(cfg.get("delta_minus_y_offset", L.delta_minus_y_offset)),
+    )
 
     strip_color = COLORS[f"trend_{state}"]
     strip_text = COLORS["white"] if state == "down" else COLORS["black"]
@@ -389,7 +412,7 @@ def render(cfg: dict, out: Path):
     items = sort_items(list(cfg.get("items", [])), mode)[:10]
     assets = Path(cfg.get("assets", "."))
     for idx, item in enumerate(items):
-        draw_row(canvas, draw, fonts, item, idx, assets, mode, thresholds)
+        draw_row(canvas, draw, fonts, item, idx, assets, mode, thresholds, cfg)
     draw_stats_column_headers(draw, fonts, cfg)
     out.parent.mkdir(parents=True, exist_ok=True)
     canvas.save(out)
