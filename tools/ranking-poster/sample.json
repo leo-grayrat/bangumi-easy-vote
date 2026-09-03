@@ -1,11 +1,18 @@
 {
+  "mode": "red",
   "brand": "现视妍 ACG部",
   "brand_color": [255, 102, 113],
   "title": "7月新番中期评分 TOP 10",
   "subtitle": "2026 MID-SEASON RESULTS",
   "assets": "tools/ranking-poster/assets",
   "footer": "基于本次有效问卷统计 · 补丁已纳入",
-  "footer_detail": "平均分仅统计有效评分 · 右栏为评分人数",
+  "footer_detail": "BGM 为 Bangumi 当前评分 · 箭头按红榜规则比较",
+  "thresholds": {
+    "red_up": 1.0,
+    "red_down": 0.4,
+    "black_up": -0.4,
+    "black_down": -1.0
+  },
   "fonts": {
     "latin": null,
     "cjk": null,
@@ -22,15 +29,15 @@
     "footer": null
   },
   "items": [
-    {"rank": 1, "title": "死神 千年血战篇 Part.4 祸进谭", "score": 9.00, "voters": 4, "total": 12, "image": "01.jpg", "focus": [0.55, 0.45]},
-    {"rank": 2, "title": "穹庐下的魔女", "score": 8.80, "voters": 5, "total": 12, "image": "02.jpg", "focus": [0.50, 0.50]},
-    {"rank": 3, "title": "黄泉的使者（后半部分）", "score": 8.57, "voters": 7, "total": 12, "image": "03.jpg", "focus": [0.50, 0.50]},
-    {"rank": 4, "title": "超超超超喜欢你的100个女孩子 第3期", "score": 8.33, "voters": 6, "total": 12, "image": "04.jpg", "focus": [0.50, 0.50]},
-    {"rank": 5, "title": "相反的你和我 第2期", "score": 8.17, "voters": 6, "total": 12, "image": "05.jpg", "focus": [0.50, 0.50]},
-    {"rank": 6, "title": "花织同学转生后还是想干架", "score": 8.00, "voters": 4, "total": 12, "image": "06.jpg", "focus": [0.50, 0.50]},
-    {"rank": 7, "title": "炒翻天", "score": 8.00, "voters": 5, "total": 12, "image": "07.jpg", "focus": [0.50, 0.50]},
-    {"rank": 8, "title": "Re:从零开始的异世界生活 第4期 Part.2 夺还篇", "score": 7.80, "voters": 5, "total": 12, "image": "08.jpg", "focus": [0.50, 0.50]},
-    {"rank": 9, "title": "幼女战记 第2期", "score": 7.75, "voters": 4, "total": 12, "image": "09.jpg", "focus": [0.50, 0.50]},
-    {"rank": 10, "title": "新 攻壳机动队", "score": 7.67, "voters": 6, "total": 12, "image": "10.jpg", "focus": [0.50, 0.50]}
+    {"title": "死神 千年血战篇 Part.4 祸进谭", "score": 9.00, "voters": 4, "bgm_score": 8.2657, "image": "01.jpg", "focus": [0.55, 0.45]},
+    {"title": "穹庐下的魔女", "score": 8.80, "voters": 5, "bgm_score": 7.9832, "image": "02.jpg", "focus": [0.50, 0.50]},
+    {"title": "黄泉的使者（后半部分）", "score": 8.57, "voters": 7, "bgm_score": 6.9400, "image": "03.jpg", "focus": [0.50, 0.50]},
+    {"title": "超超超超喜欢你的100个女孩子 第3期", "score": 8.33, "voters": 6, "bgm_score": 7.4574, "image": "04.jpg", "focus": [0.50, 0.50]},
+    {"title": "相反的你和我 第2期", "score": 8.17, "voters": 6, "bgm_score": 7.7389, "image": "05.jpg", "focus": [0.50, 0.50]},
+    {"title": "花织同学转生后还是想干架", "score": 8.00, "voters": 4, "bgm_score": 6.8484, "image": "06.jpg", "focus": [0.50, 0.50]},
+    {"title": "炒翻天", "score": 8.00, "voters": 5, "bgm_score": 7.1208, "image": "07.jpg", "focus": [0.50, 0.50]},
+    {"title": "无职转生 第3期", "score": 7.83, "voters": 6, "bgm_score": 7.9190, "image": "08.jpg", "focus": [0.50, 0.50]},
+    {"title": "Re:从零开始的异世界生活 第4期 Part.2 夺还篇", "score": 7.80, "voters": 5, "bgm_score": 7.7866, "image": "09.jpg", "focus": [0.50, 0.50]},
+    {"title": "幼女战记 第2期", "score": 7.75, "voters": 4, "bgm_score": 7.1764, "image": "10.jpg", "focus": [0.50, 0.50]}
   ]
 }
