@@ -10,7 +10,17 @@ const root = path.resolve('D:/File/Git/bangumi-easy-vote');
 test('resolveRequestPath maps the root and public assets inside the repository', () => {
   assert.equal(resolveRequestPath('/', root), path.join(root, 'index.html'));
   assert.equal(resolveRequestPath('/images.html', root), path.join(root, 'images.html'));
+  assert.equal(resolveRequestPath('/poster.html?project=demo', root), path.join(root, 'poster.html'));
+  assert.equal(resolveRequestPath('/poster.css', root), path.join(root, 'poster.css'));
   assert.equal(resolveRequestPath('/src/app.js', root), path.join(root, 'src', 'app.js'));
+  assert.equal(
+    resolveRequestPath('/tools/ranking-poster/sample.json', root),
+    path.join(root, 'tools', 'ranking-poster', 'sample.json'),
+  );
+  assert.equal(
+    resolveRequestPath('/tools/ranking-poster/sample-black.json', root),
+    path.join(root, 'tools', 'ranking-poster', 'sample-black.json'),
+  );
   assert.equal(
     resolveRequestPath('/form-import-findings.md', root),
     path.join(root, 'form-import-findings.md'),
@@ -21,6 +31,7 @@ test('resolveRequestPath rejects traversal and files outside the public surface'
   assert.equal(resolveRequestPath('/../package.json', root), null);
   assert.equal(resolveRequestPath('/%2e%2e/package.json', root), null);
   assert.equal(resolveRequestPath('/package.json', root), null);
+  assert.equal(resolveRequestPath('/tools/ranking-poster/render.py', root), null);
   assert.equal(resolveRequestPath('/.git/config', root), null);
 });
 
