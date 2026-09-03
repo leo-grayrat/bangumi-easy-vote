@@ -5,6 +5,22 @@
   "subtitle": "2026 MID-SEASON RESULTS",
   "assets": "tools/ranking-poster/assets",
   "footer": "基于本次有效问卷统计 · 补丁已纳入",
+  "footer_detail": "平均分仅统计有效评分 · 右栏为评分人数",
+  "fonts": {
+    "latin": null,
+    "cjk": null,
+    "cjk_regular": null,
+    "header_title": null,
+    "header_subtitle": null,
+    "brand": null,
+    "anime": null,
+    "anime_small": null,
+    "rank": null,
+    "label": null,
+    "metric": null,
+    "small": null,
+    "footer": null
+  },
   "items": [
     {"rank": 1, "title": "死神 千年血战篇 Part.4 祸进谭", "score": 9.00, "voters": 4, "total": 12, "image": "01.jpg", "focus": [0.55, 0.45]},
     {"rank": 2, "title": "穹庐下的魔女", "score": 8.80, "voters": 5, "total": 12, "image": "02.jpg", "focus": [0.50, 0.50]},
