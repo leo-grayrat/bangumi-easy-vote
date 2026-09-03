@@ -1,6 +1,6 @@
-# 排行榜长图原型
+# 排行榜长图
 
-这一目录只负责复刻 Anime Corner 一类纵向榜单图的版式，暂时不接入现有投票 HTML。
+这一目录保留排行榜海报的 **Pillow 离线参考实现**。浏览器中的可视化编辑器已经接入站点第三个页面 `poster.html`，两边共用同一套榜单数据含义和已确认的版式规则。
 
 当前包含：
 
@@ -11,10 +11,30 @@
 - `template.svg`：SVG 骨架；
 - `layout-calibrated.json`：机器可读的实测版式参数；
 - `reference-calibration.md`：参考图测量记录；
-- `sample.json`：红榜示例输入；
-- `sample-black.json`：黑榜示例输入。
+- `sample.json`：当前红榜示例输入；
+- `sample-black.json`：当前黑榜示例输入。
 
-参考画布为 **1200×1800**。榜单单行拆成 110 px 名次区、699 px 视觉图区和 345 px 数据区。横版视觉图按 cover 方式裁切，可通过每项的 `focus: [x, y]` 调整裁切焦点。
+参考画布为 **1200×1800**。榜单单行拆成 110 px 名次区、699 px 视觉图区和 345 px 数据区。横版视觉图按 cover 方式裁切；Pillow 版可用 `focus: [x, y]` 调整焦点，浏览器版会保存更细的 `zoom / offsetX / offsetY` 非破坏裁切参数。
+
+## 浏览器编辑器
+
+运行仓库根目录的：
+
+```powershell
+npm run dev
+```
+
+然后从顶部进入 **“排行榜海报”**。浏览器版可以：
+
+- 载入当前红榜 / 黑榜或整理后的项目 JSON；
+- 逐项修改标题、人工换行、社内均分、投票数和 BGM 分数；
+- 给每一项导入本地视觉图，并在 699×136 视窗里拖动、缩放裁切；
+- 分别修改主标题、副标题、动画标题、排名数字、平均分、差值和小字的字体与字号；
+- 临时载入本地字体；
+- 实时预览并导出 1200×1800 透明 PNG；
+- 下载不含图片和字体二进制的海报项目 JSON。
+
+本地图片和字体只在当前浏览器会话中使用，不上传网络。重新载入项目 JSON 后需要重新选择对应图片；原始问卷 Excel 不进入这一层，也不要提交到仓库。
 
 ## 当前信息结构
 
@@ -54,9 +74,9 @@
 
 ## 透明输出
 
-Pillow 输出保持 `RGBA`。画布底层和底部留白使用透明像素；页头、名次块、视觉图、数据区等榜单组件仍然是不透明的，可以直接把 PNG 叠到其他背景上继续排版。
+Pillow 和 Canvas 输出都保持透明底层。页头、名次块、视觉图、数据区等榜单组件仍然是不透明的，可以把导出的 PNG 叠到其他背景上继续排版。
 
-## 直接运行
+## Pillow 直接运行
 
 ```bash
 python -m pip install -r tools/ranking-poster/requirements.txt
@@ -66,9 +86,9 @@ python tools/ranking-poster/render.py tools/ranking-poster/sample-black.json -o 
 
 如果没有对应视觉图，渲染器会使用占位色块，因此可以先只校准排版。
 
-## 本地自己调字体
+## Pillow 本地自己调字体
 
-不建议为了试字体反复修改 `sample.json`。更方便的做法是复制一份本地样式覆盖文件：
+如果只想快速试字体，也可以继续使用原来的本地样式覆盖文件：
 
 ```powershell
 cd tools/ranking-poster
@@ -76,30 +96,7 @@ copy style.example.json style.local.json
 python preview.py sample.json --style style.local.json --watch -o preview.png
 ```
 
-`--watch` 开启后，只要保存 `style.local.json`，就会自动重渲染 `preview.png`。这样可以自己反复换字体、字号和标题行距，不需要每次改主数据文件。
-
-Windows 字体路径可以直接写成正斜杠，例如：
-
-```json
-{
-  "fonts": {
-    "header_title": "C:/Windows/Fonts/你选择的字体.ttf",
-    "header_subtitle": "C:/Windows/Fonts/你选择的西文字体.ttf",
-    "anime": "C:/Windows/Fonts/你选择的中文粗体.ttc",
-    "metric": "C:/Windows/Fonts/你选择的数字字体.ttf",
-    "trend_delta": "C:/Windows/Fonts/你选择的数字字体.ttf"
-  },
-  "font_sizes": {
-    "header_title": 60,
-    "header_subtitle": 34,
-    "anime": 36,
-    "metric": 46,
-    "trend_delta": 34
-  },
-  "header_line_gap": 18,
-  "delta_minus_y_offset": 4
-}
-```
+`--watch` 开启后，只要保存 `style.local.json`，就会自动重渲染 `preview.png`。
 
 常用角色含义：
 
