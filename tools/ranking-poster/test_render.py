@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image
 
 import render
 
@@ -80,9 +80,10 @@ class RenderBehaviorTests(unittest.TestCase):
     def test_comparison_column_is_wider_than_score_column(self):
         self.assertLess(render.L.stats_split, render.L.stats_w - render.L.stats_split)
 
-    def test_auxiliary_row_is_tall_enough_for_voters_and_bgm(self):
-        self.assertGreaterEqual(render.L.stats_foot_h, 36)
-        self.assertGreaterEqual(render.load_fonts({})["aux"].size, 17)
+    def test_auxiliary_row_stays_compact(self):
+        self.assertGreaterEqual(render.L.stats_foot_h, 18)
+        self.assertLessEqual(render.L.stats_foot_h, 24)
+        self.assertLessEqual(render.load_fonts({})["aux"].size, 15)
 
     def test_comparison_text_does_not_embed_unicode_arrow(self):
         bgm_label, delta_label, state = render.comparison_values(
@@ -93,22 +94,13 @@ class RenderBehaviorTests(unittest.TestCase):
         self.assertEqual(state, "up")
         self.assertFalse(any(symbol in delta_label for symbol in "↑↓↔→←"))
 
-    def test_up_trend_arrow_shaft_connects_to_tip(self):
-        image = Image.new("RGBA", (90, 70), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(image)
-        render.draw_trend_icon(draw, "up", (5, 5, 75, 65))
-        # First arrow is centered near x=29. A connected arrow has painted
-        # pixels all the way from the tip into the shaft; the old implementation
-        # left a visible gap around y=15.
-        self.assertGreater(image.getpixel((29, 15))[3], 0)
-
-    def test_trend_icon_is_drawn_as_geometry(self):
-        image = Image.new("RGBA", (90, 70), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(image)
-        render.draw_trend_icon(draw, "up", (5, 5, 75, 65))
-        self.assertIsNotNone(image.getbbox())
-        self.assertGreater(image.getbbox()[2] - image.getbbox()[0], 20)
-        self.assertGreater(image.getbbox()[3] - image.getbbox()[1], 30)
+    def test_reference_trend_assets_decode_with_transparency(self):
+        for state in ("up", "down", "flat"):
+            icon = render.load_trend_icon(state)
+            self.assertEqual(icon.mode, "RGBA")
+            alpha = icon.getchannel("A")
+            self.assertEqual(alpha.getextrema()[0], 0)
+            self.assertGreater(alpha.getextrema()[1], 200)
 
     def test_auxiliary_strip_uses_trend_color_across_both_columns(self):
         with tempfile.TemporaryDirectory() as td:
