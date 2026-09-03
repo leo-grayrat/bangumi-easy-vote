@@ -13,7 +13,7 @@
   --stats-head-h: 22px;
   --stats-score-w: 158px;
   --stats-compare-w: 187px;
-  --stats-aux-h: 34px;
+  --stats-aux-h: 38px;
 
   --row-1-y: 168px;
   --row-2-y: 317px;
@@ -31,7 +31,6 @@
   --c-rank-top: #ff686f;
   --c-rank-normal: #ef9448;
   --c-label-red: #dd0000;
-  --c-aux: #f4f4f4;
   --c-trend-up: #36c120;
   --c-trend-flat: #ffb018;
   --c-trend-down: #ee1f1f;
@@ -140,7 +139,7 @@
   text-shadow: 0 1px 2px rgba(0,0,0,.9);
 }
 
-/* Two primary cells above one full-width auxiliary row. */
+/* Two primary cells above one full-width, trend-colored auxiliary row. */
 .ranking-row__stats {
   position: relative;
   display: grid;
@@ -160,9 +159,9 @@
 
 .ranking-row__comparison {
   display: grid;
-  grid-template-columns: 70px 1fr;
+  grid-template-columns: 76px 1fr;
   align-items: center;
-  padding: 0 8px;
+  padding: 0 7px;
 }
 
 .ranking-row__delta {
@@ -171,10 +170,10 @@
   text-align: center;
 }
 
-/* Trend arrows are separate vector geometry, not Unicode/font glyphs. */
+/* Trend arrows are connected rounded vector geometry, never Unicode glyphs. */
 .ranking-row__trend-icon {
-  width: 62px;
-  height: 58px;
+  width: 70px;
+  height: 62px;
 }
 
 .ranking-row__trend-icon[data-state="up"]   { color: var(--c-trend-up); }
@@ -183,15 +182,22 @@
 
 .ranking-row__aux {
   grid-column: 1 / -1;
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--stats-score-w) var(--stats-compare-w);
   align-items: center;
-  justify-content: space-between;
-  padding: 0 12px;
-  background: var(--c-aux);
+  height: var(--stats-aux-h);
   color: #000;
   font-family: var(--font-small);
-  font-size: 15px;
+  font-size: 18px;
   font-weight: 800;
+  text-align: center;
+}
+
+.ranking-row__aux[data-trend="up"]   { background: var(--c-trend-up); }
+.ranking-row__aux[data-trend="flat"] { background: var(--c-trend-flat); }
+.ranking-row__aux[data-trend="down"] {
+  background: var(--c-trend-down);
+  color: #fff;
 }
 
 .ranking-poster__stats-head {
