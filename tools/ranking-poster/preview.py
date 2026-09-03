@@ -29,6 +29,11 @@ def build_config(config_path: Path, style_path: Path | None) -> dict:
     cfg = load_json(config_path)
     if style_path is not None and style_path.exists():
         cfg = deep_merge(cfg, load_json(style_path))
+
+    assets = cfg.get("assets")
+    if assets and not Path(assets).is_absolute():
+        repo_root = Path(__file__).resolve().parents[2]
+        cfg["assets"] = str((repo_root / assets).resolve())
     return cfg
 
 
