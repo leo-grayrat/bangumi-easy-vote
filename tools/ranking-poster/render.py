@@ -27,7 +27,7 @@ class Layout:
     stats_w: int = 345
     right: int = 1176
     stats_split: int = 158
-    stats_foot_h: int = 34
+    stats_foot_h: int = 38
     stats_head_y: int = 146
     stats_head_h: int = 22
     footer_top: int = 1650
@@ -50,7 +50,6 @@ COLORS = {
     "rank_normal": (239, 148, 72),
     "white": (255, 255, 255),
     "black": (0, 0, 0),
-    "aux": (244, 244, 244),
     "trend_up": (54, 193, 32),
     "trend_flat": (255, 176, 24),
     "trend_down": (238, 31, 31),
@@ -63,7 +62,7 @@ LATIN_HEAVY_DEFAULTS = [
     "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
 ]
 CJK_HEAVY_DEFAULTS = [
-    "/usr/share/opentype/noto/NotoSansCJK-Bold.ttc",
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
     "/usr/share/opentype/noto/NotoSansCJK-Regular.ttc",
     "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
 ]
@@ -78,11 +77,32 @@ def font_candidates(font_cfg: dict, role: str, fallbacks: Iterable[str | None]) 
     return [explicit, *fallbacks] if explicit else list(fallbacks)
 
 
-def _font(candidates: Iterable[str | None], size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+def _font(
+    candidates: Iterable[str | None],
+    size: int,
+    *,
+    preferred_ttc_index: int = 0,
+) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    """Load the first available font, selecting the SC face in CJK collections.
+
+    NotoSansCJK *.ttc collections expose JP/KR/SC/TC/HK as separate faces.
+    Pillow defaults to face 0 (JP), which produces Japanese glyph variants for
+    some Han characters. CJK roles therefore request face 2 (SC) first and
+    gracefully fall back to face 0 for single-face/custom TTC files.
+    """
     for candidate in candidates:
         if not candidate:
             continue
         try:
+            if preferred_ttc_index and str(candidate).lower().endswith(".ttc"):
+                try:
+                    return ImageFont.truetype(
+                        candidate,
+                        size=size,
+                        index=preferred_ttc_index,
+                    )
+                except OSError:
+                    pass
             return ImageFont.truetype(candidate, size=size)
         except OSError:
             continue
@@ -101,17 +121,41 @@ def load_fonts(cfg: dict | None = None) -> dict[str, ImageFont.ImageFont]:
         *cjk,
     ]
     return {
-        "header_title": _font(font_candidates(font_cfg, "header_title", cjk + latin), 60),
+        "header_title": _font(
+            font_candidates(font_cfg, "header_title", cjk + latin),
+            60,
+            preferred_ttc_index=2,
+        ),
         "header_subtitle": _font(font_candidates(font_cfg, "header_subtitle", latin + cjk), 34),
-        "brand": _font(font_candidates(font_cfg, "brand", cjk + latin), 34),
+        "brand": _font(
+            font_candidates(font_cfg, "brand", cjk + latin),
+            34,
+            preferred_ttc_index=2,
+        ),
         "rank": _font(font_candidates(font_cfg, "rank", latin + cjk), 74),
-        "anime": _font(font_candidates(font_cfg, "anime", cjk + latin), 36),
-        "anime_small": _font(font_candidates(font_cfg, "anime_small", cjk + latin), 31),
+        "anime": _font(
+            font_candidates(font_cfg, "anime", cjk + latin),
+            36,
+            preferred_ttc_index=2,
+        ),
+        "anime_small": _font(
+            font_candidates(font_cfg, "anime_small", cjk + latin),
+            31,
+            preferred_ttc_index=2,
+        ),
         "label": _font(font_candidates(font_cfg, "label", latin + cjk), 14),
         "metric": _font(font_candidates(font_cfg, "metric", latin + cjk), 46),
         "trend_delta": _font(font_candidates(font_cfg, "trend_delta", latin + cjk), 34),
-        "aux": _font(font_candidates(font_cfg, "aux", cjk + latin), 15),
-        "footer": _font(font_candidates(font_cfg, "footer", regular + latin), 25),
+        "aux": _font(
+            font_candidates(font_cfg, "aux", cjk + latin),
+            18,
+            preferred_ttc_index=2,
+        ),
+        "footer": _font(
+            font_candidates(font_cfg, "footer", regular + latin),
+            25,
+            preferred_ttc_index=2,
+        ),
     }
 
 
@@ -228,54 +272,67 @@ def _center_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont
     )
 
 
+def _round_cap(draw: ImageDraw.ImageDraw, point, color, width: int) -> None:
+    radius = width / 2
+    x, y = point
+    draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=color)
+
+
+def _stroke(draw: ImageDraw.ImageDraw, points, color, width: int, *, cap_ends: bool = True) -> None:
+    """Draw a thick rounded polyline used by the trend icons."""
+    draw.line(points, fill=color, width=width, joint="curve")
+    if cap_ends:
+        _round_cap(draw, points[0], color, width)
+        _round_cap(draw, points[-1], color, width)
+
+
 def draw_trend_icon(draw: ImageDraw.ImageDraw, state: str, box) -> None:
-    """Draw the reference-style double arrows as geometry, not font glyphs."""
+    """Draw reference-style double arrows as connected rounded geometry."""
     x1, y1, x2, y2 = box
     color = COLORS[f"trend_{state}"]
-    line_width = max(4, round((x2 - x1) * 0.07))
-    head = max(7, round((x2 - x1) * 0.14))
+    width = x2 - x1
+    height = y2 - y1
+    line_width = max(5, round(width * 0.075))
+    head_x = max(8, round(width * 0.13))
+    head_y = max(8, round(height * 0.16))
 
     if state in ("up", "down"):
-        xs = (x1 + (x2 - x1) * 0.34, x1 + (x2 - x1) * 0.68)
-        top = y1 + 5
-        bottom = y2 - 5
+        xs = (x1 + width * 0.34, x1 + width * 0.68)
+        tip_top = y1 + 5
+        tip_bottom = y2 - 5
         for x in xs:
             if state == "up":
-                draw.line((x, bottom, x, top + head), fill=color, width=line_width)
-                draw.line(
-                    (x - head, top + head, x, top, x + head, top + head),
-                    fill=color,
-                    width=line_width,
-                    joint="curve",
-                )
+                tip = (x, tip_top)
+                tail = (x, tip_bottom)
+                # Shaft reaches the arrow tip; the head branches meet the same
+                # vertex, avoiding the old disconnected "line + chevron" look.
+                _stroke(draw, (tail, tip), color, line_width)
+                _stroke(draw, ((x - head_x, tip_top + head_y), tip), color, line_width)
+                _stroke(draw, ((x + head_x, tip_top + head_y), tip), color, line_width)
             else:
-                draw.line((x, top, x, bottom - head), fill=color, width=line_width)
-                draw.line(
-                    (x - head, bottom - head, x, bottom, x + head, bottom - head),
-                    fill=color,
-                    width=line_width,
-                    joint="curve",
-                )
+                tip = (x, tip_bottom)
+                tail = (x, tip_top)
+                _stroke(draw, (tail, tip), color, line_width)
+                _stroke(draw, ((x - head_x, tip_bottom - head_y), tip), color, line_width)
+                _stroke(draw, ((x + head_x, tip_bottom - head_y), tip), color, line_width)
         return
 
     left = x1 + 6
     right = x2 - 6
-    y_top = y1 + (y2 - y1) * 0.36
-    y_bottom = y1 + (y2 - y1) * 0.68
-    draw.line((left, y_top, right - head, y_top), fill=color, width=line_width)
-    draw.line(
-        (right - head, y_top - head, right, y_top, right - head, y_top + head),
-        fill=color,
-        width=line_width,
-        joint="curve",
-    )
-    draw.line((right, y_bottom, left + head, y_bottom), fill=color, width=line_width)
-    draw.line(
-        (left + head, y_bottom - head, left, y_bottom, left + head, y_bottom + head),
-        fill=color,
-        width=line_width,
-        joint="curve",
-    )
+    y_top = y1 + height * 0.35
+    y_bottom = y1 + height * 0.69
+
+    # Top arrow points right; bottom arrow points left. Each shaft runs all the
+    # way into its tip so the icon reads as two complete opposing arrows.
+    right_tip = (right, y_top)
+    _stroke(draw, ((left, y_top), right_tip), color, line_width)
+    _stroke(draw, ((right - head_x, y_top - head_y), right_tip), color, line_width)
+    _stroke(draw, ((right - head_x, y_top + head_y), right_tip), color, line_width)
+
+    left_tip = (left, y_bottom)
+    _stroke(draw, ((right, y_bottom), left_tip), color, line_width)
+    _stroke(draw, ((left + head_x, y_bottom - head_y), left_tip), color, line_width)
+    _stroke(draw, ((left + head_x, y_bottom + head_y), left_tip), color, line_width)
 
 
 def draw_header(draw: ImageDraw.ImageDraw, fonts, cfg):
@@ -387,26 +444,36 @@ def draw_row(
     )
 
     bgm_label, delta_label, state = comparison_values(item, mode, thresholds)
-    icon_left = split + 8
-    icon_right = min(split + 74, stats_x2 - 92)
-    draw_trend_icon(draw, state, (icon_left, y + 19, icon_right, foot_y - 16))
+    icon_left = split + 7
+    icon_right = min(split + 83, stats_x2 - 91)
+    draw_trend_icon(draw, state, (icon_left, y + 16, icon_right, foot_y - 12))
     _center_text(
         draw,
         delta_label,
         fonts["trend_delta"],
-        (icon_right + 4, y, stats_x2 - 4, foot_y),
+        (icon_right + 3, y, stats_x2 - 4, foot_y),
         COLORS["white"],
     )
 
-    draw.rectangle((stats_x1, foot_y, stats_x2 - 1, bottom - 1), fill=COLORS["aux"])
+    # The auxiliary strip is one unified trend-colored band. Voter count and
+    # BGM score remain centered under the same two columns as the main metrics.
+    strip_color = COLORS[f"trend_{state}"]
+    strip_text = COLORS["white"] if state == "down" else COLORS["black"]
+    draw.rectangle((stats_x1, foot_y, stats_x2 - 1, bottom - 1), fill=strip_color)
     voters_label = f'投票数 {int(item.get("voters", 0))}'
-    draw.text((stats_x1 + 12, foot_y + 8), voters_label, font=fonts["aux"], fill=COLORS["black"])
-    bgm_box = draw.textbbox((0, 0), bgm_label, font=fonts["aux"])
-    draw.text(
-        (stats_x2 - 12 - (bgm_box[2] - bgm_box[0]), foot_y + 8),
+    _center_text(
+        draw,
+        voters_label,
+        fonts["aux"],
+        (stats_x1, foot_y, split, bottom),
+        strip_text,
+    )
+    _center_text(
+        draw,
         bgm_label,
-        font=fonts["aux"],
-        fill=COLORS["black"],
+        fonts["aux"],
+        (split, foot_y, stats_x2, bottom),
+        strip_text,
     )
 
 
