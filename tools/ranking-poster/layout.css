@@ -1,19 +1,18 @@
 :root {
-  /* 1200×1800 reference poster geometry */
   --poster-w: 1200px;
   --poster-h: 1800px;
   --header-h: 146px;
   --brand-w: 344px;
-
   --list-left: 22px;
   --rank-w: 110px;
   --visual-w: 699px;
   --stats-w: 345px;
   --row-h: 136px;
   --footer-top: 1650px;
+  --stats-head-y: 146px;
+  --stats-head-h: 22px;
+  --stats-foot-h: 22px;
 
-  /* Measured starts from the 2026 reference; do not replace with a single
-     accumulated grid gap unless the resulting drift is rechecked. */
   --row-1-y: 168px;
   --row-2-y: 317px;
   --row-3-y: 467px;
@@ -29,11 +28,12 @@
   --c-stat: #1e1e1e;
   --c-rank-top: #ff686f;
   --c-rank-normal: #ef9448;
-  --c-yellow: #ffb018;
-  --c-green: #36c120;
+  --c-bgm: #ffb018;
+  --c-trend-up: #36c120;
+  --c-trend-flat: #e6e6e6;
+  --c-trend-down: #ff686f;
   --c-label-red: #dd0000;
 
-  /* Font roles mirror render.py. Override them when this scaffold is used. */
   --font-header-title: "Noto Sans CJK SC", "Noto Sans", Arial, sans-serif;
   --font-header-subtitle: "Noto Sans", "Noto Sans CJK SC", Arial, sans-serif;
   --font-anime: "Noto Sans CJK SC", "Noto Sans", Arial, sans-serif;
@@ -41,11 +41,6 @@
   --font-small: "Noto Sans CJK SC", "Noto Sans", Arial, sans-serif;
 }
 
-/*
- * Standalone geometry reference for the poster renderer.
- * It is deliberately not wired into the voting page yet.
- * The surrounding canvas is transparent; only actual components are opaque.
- */
 .ranking-poster {
   position: relative;
   width: var(--poster-w);
@@ -68,19 +63,6 @@
   width: var(--brand-w);
   height: var(--header-h);
   background: var(--c-rank-top);
-}
-
-.ranking-poster__header-title {
-  font-family: var(--font-header-title);
-}
-
-.ranking-poster__header-subtitle {
-  font-family: var(--font-header-subtitle);
-}
-
-.ranking-poster__rows {
-  position: absolute;
-  inset: 0;
 }
 
 .ranking-row {
@@ -168,29 +150,29 @@
   font-weight: 900;
 }
 
-/* The reference shows column labels once, above row 1, not once per row. */
 .ranking-poster__stats-head {
   position: absolute;
-  z-index: 4;
+  z-index: 10;
   left: calc(var(--list-left) + var(--rank-w) + var(--visual-w));
-  top: 156px;
+  top: var(--stats-head-y);
   display: grid;
   grid-template-columns: 185px 160px;
   width: var(--stats-w);
-  height: 28px;
+  height: var(--stats-head-h);
   font-family: var(--font-header-subtitle);
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 800;
+  line-height: var(--stats-head-h);
 }
 
 .ranking-poster__stats-head > :first-child {
-  padding: 4px 12px;
+  padding: 0 10px;
   background: var(--c-label-red);
   color: white;
 }
 
 .ranking-poster__stats-head > :last-child {
-  padding: 4px 14px;
+  padding: 0 12px;
   background: white;
   color: black;
 }
@@ -202,17 +184,19 @@
   bottom: 0;
   display: grid;
   grid-template-columns: 185px 160px;
-  height: 20px;
+  height: var(--stats-foot-h);
   color: #000;
   font-family: var(--font-small);
   font-size: 14px;
   font-weight: 800;
-  line-height: 20px;
+  line-height: var(--stats-foot-h);
   text-align: center;
 }
 
-.ranking-row__stats-foot > :first-child { background: var(--c-yellow); }
-.ranking-row__stats-foot > :last-child  { background: var(--c-green); }
+.ranking-row__stats-foot > :first-child { background: var(--c-bgm); }
+.ranking-row__stats-foot[data-trend="up"] > :last-child { background: var(--c-trend-up); }
+.ranking-row__stats-foot[data-trend="flat"] > :last-child { background: var(--c-trend-flat); }
+.ranking-row__stats-foot[data-trend="down"] > :last-child { background: var(--c-trend-down); }
 
 .ranking-poster__footer {
   position: absolute;
