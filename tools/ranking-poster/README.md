@@ -2,17 +2,50 @@
 
 这一目录只负责复刻 Anime Corner 一类纵向榜单图的版式，暂时不接入现有投票 HTML。
 
-目前保留几种表达：
+当前包含：
 
 - `render.py`：Pillow 实际渲染器；
-- `layout.css`：把参考图拆成可读的尺寸、样式和字体角色；
-- `template.svg`：SVG 版骨架，方便继续核对坐标与字体；
+- `layout.css`：与渲染器同步的版式参数；
+- `template.svg`：SVG 骨架；
 - `layout-calibrated.json`：机器可读的实测版式参数；
 - `reference-calibration.md`：参考图测量记录；
-- `sample.json`：当前评分数据的示例输入；
-- `test_render.py`：透明输出和字体配置的最小回归测试。
+- `sample.json`：红榜示例输入；
+- `sample-black.json`：黑榜示例输入；
+- `test_render.py`：透明输出、字体、排序、箭头规则和顶部标签位置的回归测试。
 
-参考画布为 **1200×1800**。榜单单行拆成 110 px 名次区、699 px 视觉图区和 345 px 数据区；右侧原本的“排名变化”区域改成“平均分 + 评分人数”。横版视觉图按 cover 方式裁切，可通过每项的 `focus: [x, y]` 调整裁切焦点。
+参考画布为 **1200×1800**。榜单单行拆成 110 px 名次区、699 px 视觉图区和 345 px 数据区。横版视觉图按 cover 方式裁切，可通过每项的 `focus: [x, y]` 调整裁切焦点。
+
+## 当前信息结构
+
+右侧主区显示：
+
+- `AVERAGE SCORE`：本次问卷平均分；
+- `RATERS`：实际评分人数。
+
+单行底条不再重复“平均评分 / X 人评分”，改为：
+
+- 左侧：`BGM 7.12`；
+- 右侧：`↑ +0.88` / `→ +0.36` / `↓ -1.24`。
+
+箭头判定按红榜和黑榜分别处理，默认阈值为：
+
+```text
+红榜：delta >= +1.0 -> up；delta < +0.4 -> down；其余 flat
+黑榜：delta >  -0.4 -> up；delta <= -1.0 -> down；其余 flat
+```
+
+其中 `delta = 社内平均分 - BGM 分数`。阈值可以在 JSON 的 `thresholds` 中覆盖。
+
+## 排序
+
+渲染器不再信任手写 `rank`，会根据榜单模式自动排序：
+
+```text
+红榜：平均分降序 -> 评分人数降序
+黑榜：平均分升序 -> 评分人数降序
+```
+
+因此同分时永远由评分人数更多的条目排在前面。
 
 ## 透明输出
 
@@ -22,7 +55,8 @@ Pillow 输出保持 `RGBA`，画布底层和页脚底色都使用透明像素。
 
 ```bash
 python -m pip install -r tools/ranking-poster/requirements.txt
-python tools/ranking-poster/render.py tools/ranking-poster/sample.json -o ranking-poster.png
+python tools/ranking-poster/render.py tools/ranking-poster/sample.json -o ranking-red.png
+python tools/ranking-poster/render.py tools/ranking-poster/sample-black.json -o ranking-black.png
 ```
 
 如果没有对应图片，Pillow 渲染器会使用占位色块，因此可以先只校准排版。
@@ -31,40 +65,23 @@ python tools/ranking-poster/render.py tools/ranking-poster/sample.json -o rankin
 
 字体文件不随仓库提交。默认会优先寻找常见的 Noto CJK / DejaVu 字体；页头主标题默认优先使用支持中文的字体，避免中文标题显示成方框或空白。
 
-字体可以在 `sample.json` 的 `fonts` 中按角色覆盖：
+字体可以在 JSON 的 `fonts` 中按角色覆盖，例如：
 
 ```json
 "fonts": {
   "latin": "/path/to/latin-bold.ttf",
   "cjk": "/path/to/cjk-bold.ttc",
   "header_title": "/path/to/title-font.ttc",
-  "header_subtitle": "/path/to/subtitle-font.ttf",
-  "brand": "/path/to/brand-font.ttc",
   "anime": "/path/to/anime-title-font.ttc",
   "rank": "/path/to/rank-number-font.ttf",
   "metric": "/path/to/metric-font.ttf",
-  "small": "/path/to/small-cjk-font.ttc",
-  "footer": "/path/to/footer-font.ttc"
+  "small": "/path/to/small-cjk-font.ttc"
 }
 ```
 
-没有单独指定某个角色时，会退回到通用的 `cjk` / `latin`，再退回到脚本内置的常见系统路径。
-
-原有环境变量仍然可用：
-
-```bash
-RANKING_FONT_CJK=/path/to/cjk-bold.ttc \
-RANKING_FONT_LATIN=/path/to/latin-bold.ttf \
-python tools/ranking-poster/render.py tools/ranking-poster/sample.json
-```
-
 ## 测试
-
-在该目录运行：
 
 ```bash
 cd tools/ranking-poster
 python -m unittest -v test_render.py
 ```
-
-测试会确认导出的 PNG 保留透明通道，并检查字体角色覆盖与默认中文标题字体的优先级。
