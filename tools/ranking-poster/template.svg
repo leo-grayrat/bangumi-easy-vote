@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1536" viewBox="0 0 1024 1536">
+  <defs>
+    <style>
+      .title { font: 800 50px 'Noto Sans', Arial, sans-serif; fill:#fff; }
+      .subtitle { font: 800 29px 'Noto Sans', Arial, sans-serif; fill:#fff; }
+      .rank { font: 800 60px 'Noto Sans', Arial, sans-serif; text-anchor:middle; dominant-baseline:middle; }
+      .anime { font: 800 31px 'Noto Sans CJK SC','Noto Sans',Arial,sans-serif; fill:#fff; }
+      .label { font: 800 15px 'Noto Sans CJK SC','Noto Sans',Arial,sans-serif; }
+      .metric { font: 800 39px 'Noto Sans',Arial,sans-serif; fill:#fff; }
+      .small { font: 800 13px 'Noto Sans CJK SC','Noto Sans',Arial,sans-serif; }
+    </style>
+    <linearGradient id="veil" x1="0" x2="1">
+      <stop offset="0" stop-color="#000" stop-opacity=".46"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".08"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Geometry-only scaffold. Replace image href/title/metrics programmatically. -->
+  <rect width="1024" height="1536" fill="#cef5f4"/>
+  <rect width="1024" height="125" fill="#060608"/>
+  <rect width="292" height="125" fill="#ff6671"/>
+  <text x="24" y="58" class="subtitle">ACG CLUB</text>
+  <text x="307" y="61" class="title">7月新番中期评分 TOP 10</text>
+  <text x="309" y="102" class="subtitle">2026 MID-SEASON RESULTS</text>
+
+  <g id="row-template" transform="translate(18 143)">
+    <rect width="95" height="118" fill="#ff6671"/>
+    <text x="47.5" y="59" class="rank" fill="#fff">1</text>
+
+    <rect x="95" width="596" height="118" fill="#555"/>
+    <rect x="95" width="596" height="118" fill="url(#veil)"/>
+    <text x="115" y="93" class="anime">动画标题</text>
+
+    <rect x="691" width="295" height="118" fill="#1f1f1f"/>
+    <rect x="691" width="145" height="27" fill="#ff6671"/>
+    <rect x="836" width="150" height="27" fill="#fff"/>
+    <text x="701" y="19" class="label" fill="#fff">平均分</text>
+    <text x="848" y="19" class="label" fill="#000">评分人数</text>
+    <text x="713" y="77" class="metric">8.57</text>
+    <text x="855" y="77" class="metric">7 人</text>
+    <rect x="691" y="102" width="295" height="16" fill="#23be36"/>
+    <text x="701" y="115" class="small" fill="#000">7 / 12 份问卷有效评分</text>
+  </g>
+
+  <rect y="1424" width="1024" height="112" fill="#ffe8c6"/>
+  <text x="512" y="1489" text-anchor="middle" font-family="Noto Sans CJK SC,Noto Sans,Arial,sans-serif" font-size="21">基于本次有效问卷统计 · 补丁已纳入</text>
+</svg>
