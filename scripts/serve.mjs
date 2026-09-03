@@ -6,12 +6,16 @@ import { pathToFileURL } from 'node:url';
 
 import { exportYucAssets } from './yuc-exporter.mjs';
 
-const PUBLIC_ROOT_FILES = new Set([
+const PUBLIC_FILES = new Set([
   'index.html',
   'images.html',
+  'poster.html',
   'bangumi-components.css',
   'styles.css',
+  'poster.css',
   'form-import-findings.md',
+  'tools/ranking-poster/sample.json',
+  'tools/ranking-poster/sample-black.json',
 ]);
 
 const MIME_TYPES = new Map([
@@ -45,10 +49,10 @@ export function resolveRequestPath(requestUrl, rootDirectory) {
   }
 
   const relativePath = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
-  const isRootFile = PUBLIC_ROOT_FILES.has(relativePath);
+  const isPublicFile = PUBLIC_FILES.has(relativePath);
   const isSourceModule = /^src\/[a-z0-9-]+\.js$/i.test(relativePath);
 
-  if (!isRootFile && !isSourceModule) {
+  if (!isPublicFile && !isSourceModule) {
     return null;
   }
 
