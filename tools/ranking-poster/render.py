@@ -3,6 +3,7 @@
 
 The geometry is calibrated against the two Anime Corner reference posters
 supplied for this task. This module stays independent from the voting HTML.
+The canvas background is transparent so the poster can be composited later.
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ class Layout:
     width: int = 1200
     height: int = 1800
 
-    # Reference image: header occupies y=0..145; body background starts at 146.
+    # Reference image: header occupies y=0..145; body starts at 146.
     header_h: int = 146
     brand_w: int = 344
 
@@ -54,13 +55,10 @@ class Layout:
 L = Layout()
 
 COLORS = {
-    "bg": (106, 210, 214),
     "header": (0, 0, 0),
     "stats": (30, 30, 30),
     "rank_top": (255, 104, 111),
     "rank_normal": (239, 148, 72),
-    "accent": (106, 210, 214),
-    "footer": (255, 233, 204),
     "white": (255, 255, 255),
     "black": (0, 0, 0),
     "yellow": (255, 176, 24),
@@ -68,45 +66,92 @@ COLORS = {
     "label_red": (221, 0, 0),
 }
 
+LATIN_HEAVY_DEFAULTS = [
+    "/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed-Bold.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+]
+
+CJK_HEAVY_DEFAULTS = [
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+]
+
+CJK_REGULAR_DEFAULTS = [
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+    "/usr/share/truetype/wqy/wqy-zenhei.ttc",
+]
+
+
+def font_candidates(
+    font_cfg: dict,
+    role: str,
+    fallbacks: Iterable[str | None],
+) -> list[str | None]:
+    """Return candidates for one font role, with explicit config first."""
+    explicit = font_cfg.get(role)
+    return [explicit, *fallbacks] if explicit else list(fallbacks)
+
 
 def _font(candidates: Iterable[str | None], size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     for candidate in candidates:
-        if candidate and Path(candidate).exists():
+        if not candidate:
+            continue
+        try:
             return ImageFont.truetype(candidate, size=size)
+        except OSError:
+            continue
     return ImageFont.load_default()
 
 
-def load_fonts() -> dict[str, ImageFont.ImageFont]:
-    # Font names are still an approximation. Geometry/weight is calibrated first;
-    # callers can override with environment variables without shipping font files.
+def load_fonts(cfg: dict | None = None) -> dict[str, ImageFont.ImageFont]:
+    """Load fonts with per-role overrides and safe CJK defaults.
+
+    ``cfg["fonts"]`` can override any role without storing font files in the
+    repository. General ``latin`` / ``cjk`` / ``cjk_regular`` keys are also
+    accepted. Environment variables remain supported for local workflows.
+    """
+    cfg = cfg or {}
+    font_cfg = cfg.get("fonts", {}) or {}
+
     latin_heavy = [
+        font_cfg.get("latin"),
         os.getenv("RANKING_FONT_LATIN"),
-        "/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed-Bold.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+        *LATIN_HEAVY_DEFAULTS,
     ]
     cjk_heavy = [
+        font_cfg.get("cjk"),
         os.getenv("RANKING_FONT_CJK"),
-        "/usr/share/opentype/noto/NotoSansCJK-Bold.ttc",
-        "/usr/share/opentype/noto/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+        *CJK_HEAVY_DEFAULTS,
     ]
     cjk_regular = [
+        font_cfg.get("cjk_regular"),
         os.getenv("RANKING_FONT_CJK_REGULAR"),
-        "/usr/share/opentype/noto/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+        *CJK_REGULAR_DEFAULTS,
+        *cjk_heavy,
     ]
+
+    # The default main title contains Chinese, so CJK-capable fonts come before
+    # Latin-only fonts here. Other Latin-heavy roles keep the closer western
+    # appearance from the reference poster.
     return {
-        "header_title": _font(latin_heavy, 60),
-        "header_subtitle": _font(latin_heavy, 34),
-        "brand": _font(cjk_heavy + latin_heavy, 34),
-        "rank": _font(latin_heavy, 74),
-        "anime": _font(cjk_heavy + latin_heavy, 36),
-        "anime_small": _font(cjk_heavy + latin_heavy, 31),
-        "label": _font(cjk_heavy + latin_heavy, 16),
-        "metric": _font(latin_heavy + cjk_heavy, 46),
-        "small": _font(cjk_heavy + latin_heavy, 14),
-        "footer": _font(cjk_regular + latin_heavy, 25),
+        "header_title": _font(
+            font_candidates(font_cfg, "header_title", cjk_heavy + latin_heavy), 60
+        ),
+        "header_subtitle": _font(
+            font_candidates(font_cfg, "header_subtitle", latin_heavy + cjk_heavy), 34
+        ),
+        "brand": _font(font_candidates(font_cfg, "brand", cjk_heavy + latin_heavy), 34),
+        "rank": _font(font_candidates(font_cfg, "rank", latin_heavy + cjk_heavy), 74),
+        "anime": _font(font_candidates(font_cfg, "anime", cjk_heavy + latin_heavy), 36),
+        "anime_small": _font(
+            font_candidates(font_cfg, "anime_small", cjk_heavy + latin_heavy), 31
+        ),
+        "label": _font(font_candidates(font_cfg, "label", latin_heavy + cjk_heavy), 16),
+        "metric": _font(font_candidates(font_cfg, "metric", latin_heavy + cjk_heavy), 46),
+        "small": _font(font_candidates(font_cfg, "small", cjk_heavy + latin_heavy), 14),
+        "footer": _font(font_candidates(font_cfg, "footer", cjk_regular + latin_heavy), 25),
     }
 
 
@@ -279,30 +324,55 @@ def draw_row(canvas: Image.Image, draw: ImageDraw.ImageDraw, fonts, item, idx: i
     voters_w = voters_box[2] - voters_box[0]
     metric_y = y + 42
 
-    draw.text((stats_x1 + (L.stats_split - score_w) / 2, metric_y), score, font=fonts["metric"], fill=COLORS["white"])
-    draw.text((split + ((stats_x2 - split) - voters_w) / 2, metric_y), voters, font=fonts["metric"], fill=COLORS["white"])
+    draw.text(
+        (stats_x1 + (L.stats_split - score_w) / 2, metric_y),
+        score,
+        font=fonts["metric"],
+        fill=COLORS["white"],
+    )
+    draw.text(
+        (split + ((stats_x2 - split) - voters_w) / 2, metric_y),
+        voters,
+        font=fonts["metric"],
+        fill=COLORS["white"],
+    )
 
     foot_y = bottom - L.stats_foot_h
     draw.rectangle((stats_x1, foot_y, split - 1, bottom - 1), fill=COLORS["yellow"])
     draw.rectangle((split, foot_y, stats_x2 - 1, bottom - 1), fill=COLORS["green"])
     draw.text((stats_x1 + 34, foot_y + 2), "平均评分", font=fonts["small"], fill=COLORS["black"])
-    draw.text((split + 31, foot_y + 2), f'{int(item.get("voters", 0))} 人评分', font=fonts["small"], fill=COLORS["black"])
+    draw.text(
+        (split + 31, foot_y + 2),
+        f'{int(item.get("voters", 0))} 人评分',
+        font=fonts["small"],
+        fill=COLORS["black"],
+    )
 
 
 def draw_footer(draw: ImageDraw.ImageDraw, fonts, cfg):
-    draw.rectangle((0, L.footer_top, L.width, L.height), fill=COLORS["footer"])
+    """Draw footer text only; the surrounding footer canvas stays transparent."""
     footer = cfg.get("footer", "基于本次有效问卷统计 · 补丁已纳入")
     detail = cfg.get("footer_detail", "平均分仅统计有效评分 · 右栏为评分人数")
 
     box = draw.textbbox((0, 0), footer, font=fonts["footer"])
-    draw.text(((L.width - (box[2] - box[0])) / 2, L.footer_top + 42), footer, font=fonts["footer"], fill=COLORS["black"])
+    draw.text(
+        ((L.width - (box[2] - box[0])) / 2, L.footer_top + 42),
+        footer,
+        font=fonts["footer"],
+        fill=COLORS["black"],
+    )
     box2 = draw.textbbox((0, 0), detail, font=fonts["footer"])
-    draw.text(((L.width - (box2[2] - box2[0])) / 2, L.footer_top + 80), detail, font=fonts["footer"], fill=(35, 126, 165))
+    draw.text(
+        ((L.width - (box2[2] - box2[0])) / 2, L.footer_top + 80),
+        detail,
+        font=fonts["footer"],
+        fill=(35, 126, 165),
+    )
 
 
 def render(cfg: dict, out: Path):
-    fonts = load_fonts()
-    canvas = Image.new("RGBA", (L.width, L.height), COLORS["bg"] + (255,))
+    fonts = load_fonts(cfg)
+    canvas = Image.new("RGBA", (L.width, L.height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(canvas)
 
     draw_header(canvas, draw, fonts, cfg)
@@ -316,7 +386,7 @@ def render(cfg: dict, out: Path):
     draw_footer(draw, fonts, cfg)
 
     out.parent.mkdir(parents=True, exist_ok=True)
-    canvas.convert("RGB").save(out, quality=95)
+    canvas.save(out)
 
 
 def main():
