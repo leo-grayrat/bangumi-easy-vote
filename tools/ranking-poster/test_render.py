@@ -1,10 +1,14 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageChops, ImageDraw
 
 import render
+
+
+HERE = Path(__file__).resolve().parent
 
 
 class RenderBehaviorTests(unittest.TestCase):
@@ -108,14 +112,7 @@ class RenderBehaviorTests(unittest.TestCase):
             render.render(
                 {
                     "mode": "red",
-                    "items": [
-                        {
-                            "title": "A",
-                            "score": 8.5,
-                            "voters": 7,
-                            "bgm_score": 7.0,
-                        }
-                    ],
+                    "items": [{"title": "A", "score": 8.5, "voters": 7, "bgm_score": 7.0}],
                 },
                 out,
             )
@@ -123,6 +120,58 @@ class RenderBehaviorTests(unittest.TestCase):
                 y = render.L.row_y[0] + render.L.row_h - 2
                 self.assertEqual(img.getpixel((render.L.stats_x + 8, y))[:3], render.COLORS["trend_up"])
                 self.assertEqual(img.getpixel((render.L.right - 8, y))[:3], render.COLORS["trend_up"])
+
+    def test_manual_title_lines_override_auto_wrap(self):
+        image = Image.new("RGBA", (800, 200), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(image)
+        fonts = render.load_fonts({})
+        item = {
+            "title": "Re:从零开始的异世界生活 第4期 Part.2 夺还篇",
+            "title_lines": ["Re:从零开始的异世界生活 第4期", "Part.2 夺还篇"],
+        }
+        lines, _ = render.resolve_title_lines(draw, item, fonts, 650)
+        self.assertEqual(lines, item["title_lines"])
+
+    def test_delta_sign_has_fixed_slot_and_uses_math_minus(self):
+        self.assertGreaterEqual(render.L.delta_sign_w, 20)
+        self.assertEqual(render.delta_parts("+1.63"), ("+", "1.63"))
+        self.assertEqual(render.delta_parts("-0.10"), ("−", "0.10"))
+
+    def test_header_text_block_is_vertically_centered(self):
+        image = Image.new("RGBA", (1200, 200), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(image)
+        fonts = render.load_fonts({})
+        layout = render.header_text_layout(
+            draw,
+            fonts,
+            {"title": "7月新番中期评分 TOP 10", "subtitle": "2026 MID-SEASON RESULTS"},
+        )
+        top_margin = layout["block_top"]
+        bottom_margin = render.L.header_h - layout["block_bottom"]
+        self.assertLessEqual(abs(top_margin - bottom_margin), 2)
+        self.assertGreaterEqual(top_margin, 8)
+
+    def test_brand_and_footer_copy_do_not_affect_render(self):
+        with tempfile.TemporaryDirectory() as td:
+            out_a = Path(td) / "a.png"
+            out_b = Path(td) / "b.png"
+            base = {"title": "T", "subtitle": "S", "items": []}
+            render.render({**base, "brand": "AAAA", "footer": "AAAA", "footer_detail": "AAAA"}, out_a)
+            render.render({**base, "brand": "BBBB", "footer": "BBBB", "footer_detail": "BBBB"}, out_b)
+            with Image.open(out_a) as a, Image.open(out_b) as b:
+                self.assertIsNone(ImageChops.difference(a, b).getbbox())
+
+    def test_red_sample_keeps_only_the_two_explicit_title_overrides(self):
+        cfg = json.loads((HERE / "sample.json").read_text(encoding="utf-8"))
+        by_title = {item["title"]: item for item in cfg["items"]}
+        self.assertIn("黄泉的使者", by_title)
+        self.assertNotIn("黄泉的使者（后半部分）", by_title)
+        re0 = next(item for item in cfg["items"] if item["title"].startswith("Re:从零开始"))
+        self.assertEqual(
+            re0.get("title_lines"),
+            ["Re:从零开始的异世界生活 第4期", "Part.2 夺还篇"],
+        )
+        self.assertEqual(sum("title_lines" in item for item in cfg["items"]), 1)
 
 
 if __name__ == "__main__":
