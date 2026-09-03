@@ -37,16 +37,23 @@ test('project normalization supplies stable crop and style defaults', () => {
   assert.equal(project.style.deltaMinusYOffset, POSTER_DEFAULTS.style.deltaMinusYOffset);
 });
 
-test('poster serialization removes session-only image urls and font sources', () => {
+test('poster serialization strips binary/session urls but keeps local filenames as reload hints', () => {
   const project = createPosterProject({
-    style: {fontFamilies: {anime: 'LocalAnime'}, fontSources: {anime: 'blob:font'}},
+    style: {
+      fontFamilies: {anime: 'LocalAnime'},
+      fontSources: {
+        anime: {filename: 'anime-local.ttf', family: 'LocalAnime', url: 'blob:font'},
+        metric: 'blob:legacy-font',
+      },
+    },
     items:[{title:'A', score:8, voters:3, bgmScore:7.2, imageName:'a.jpg', imageUrl:'blob:image'}],
   });
   const parsed = JSON.parse(serializePosterProject(project));
   assert.equal(parsed.items[0].imageUrl, undefined);
   assert.equal(parsed.items[0].imageName, 'a.jpg');
-  assert.equal(parsed.style.fontSources, undefined);
+  assert.deepEqual(parsed.style.fontSources, {anime: {filename: 'anime-local.ttf'}});
   assert.equal(parsed.style.fontFamilies.anime, 'LocalAnime');
+  assert.doesNotMatch(JSON.stringify(parsed), /blob:/);
 });
 
 test('cropTransform returns centered cover at zoom 1', () => {
