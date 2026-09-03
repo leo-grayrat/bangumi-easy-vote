@@ -27,11 +27,19 @@ class RenderBehaviorTests(unittest.TestCase):
         self.assertEqual(paths[0], "/tmp/custom-title.ttf")
 
     def test_default_header_title_prefers_cjk_capable_font(self):
-        cjk = next((Path(p) for p in render.CJK_HEAVY_DEFAULTS if Path(p).exists()), None)
+        cjk = next((Path(p) for p in render.CJK_HEAVY_DEFAULTS if isinstance(p, str) and Path(p).exists()), None)
         if cjk is None:
             self.skipTest("no CJK font installed in test environment")
         font = render.load_fonts({})["header_title"]
         self.assertEqual(Path(font.path), cjk)
+
+    def test_default_cjk_roles_use_simplified_chinese_face(self):
+        noto = Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc")
+        if not noto.exists():
+            self.skipTest("Noto CJK collection is not installed")
+        fonts = render.load_fonts({})
+        self.assertIn("CJK SC", fonts["anime"].getname()[0])
+        self.assertIn("CJK SC", fonts["header_title"].getname()[0])
 
     def test_red_and_black_sort_ties_by_more_voters(self):
         red_items = [
@@ -73,7 +81,8 @@ class RenderBehaviorTests(unittest.TestCase):
         self.assertLess(render.L.stats_split, render.L.stats_w - render.L.stats_split)
 
     def test_auxiliary_row_is_tall_enough_for_voters_and_bgm(self):
-        self.assertGreaterEqual(render.L.stats_foot_h, 32)
+        self.assertGreaterEqual(render.L.stats_foot_h, 36)
+        self.assertGreaterEqual(render.load_fonts({})["aux"].size, 17)
 
     def test_comparison_text_does_not_embed_unicode_arrow(self):
         bgm_label, delta_label, state = render.comparison_values(
@@ -84,6 +93,15 @@ class RenderBehaviorTests(unittest.TestCase):
         self.assertEqual(state, "up")
         self.assertFalse(any(symbol in delta_label for symbol in "↑↓↔→←"))
 
+    def test_up_trend_arrow_shaft_connects_to_tip(self):
+        image = Image.new("RGBA", (90, 70), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(image)
+        render.draw_trend_icon(draw, "up", (5, 5, 75, 65))
+        # First arrow is centered near x=29. A connected arrow has painted
+        # pixels all the way from the tip into the shaft; the old implementation
+        # left a visible gap around y=15.
+        self.assertGreater(image.getpixel((29, 15))[3], 0)
+
     def test_trend_icon_is_drawn_as_geometry(self):
         image = Image.new("RGBA", (90, 70), (0, 0, 0, 0))
         draw = ImageDraw.Draw(image)
@@ -91,6 +109,28 @@ class RenderBehaviorTests(unittest.TestCase):
         self.assertIsNotNone(image.getbbox())
         self.assertGreater(image.getbbox()[2] - image.getbbox()[0], 20)
         self.assertGreater(image.getbbox()[3] - image.getbbox()[1], 30)
+
+    def test_auxiliary_strip_uses_trend_color_across_both_columns(self):
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td) / "poster.png"
+            render.render(
+                {
+                    "mode": "red",
+                    "items": [
+                        {
+                            "title": "A",
+                            "score": 8.5,
+                            "voters": 7,
+                            "bgm_score": 7.0,
+                        }
+                    ],
+                },
+                out,
+            )
+            with Image.open(out) as img:
+                y = render.L.row_y[0] + render.L.row_h - 2
+                self.assertEqual(img.getpixel((render.L.stats_x + 8, y))[:3], render.COLORS["trend_up"])
+                self.assertEqual(img.getpixel((render.L.right - 8, y))[:3], render.COLORS["trend_up"])
 
 
 if __name__ == "__main__":
