@@ -5,6 +5,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { exportYucAssets } from './yuc-exporter.mjs';
+import { getTmdbArtwork, searchTmdbTv } from './tmdb-client.mjs';
 
 const PUBLIC_FILES = new Set([
   'index.html',
@@ -30,6 +31,8 @@ const MIME_TYPES = new Map([
   ['.jpeg', 'image/jpeg'],
   ['.webp', 'image/webp'],
 ]);
+const TMDB_IMAGE_SIZES = new Set(['w185', 'w300', 'w500', 'w780', 'w1280', 'original']);
+const TMDB_IMAGE_PATH = /^\/[a-z0-9._/-]+\.(?:jpe?g|png|webp)$/i;
 
 export function contentType(filename) {
   return MIME_TYPES.get(path.extname(filename).toLowerCase()) ?? 'application/octet-stream';
@@ -133,11 +136,31 @@ function writeNdjson(response, event) {
   response.write(`${JSON.stringify(event)}\n`);
 }
 
+function tmdbCredential(body) {
+  return String(body?.credential ?? '').trim() || undefined;
+}
+
+function parseTmdbImageRequest(requestUrl) {
+  let url;
+  try {
+    url = new URL(String(requestUrl ?? ''), 'http://127.0.0.1');
+  } catch {
+    return null;
+  }
+  const filePath = url.searchParams.get('path') ?? '';
+  const size = url.searchParams.get('size') ?? 'w780';
+  if (!TMDB_IMAGE_PATH.test(filePath) || !TMDB_IMAGE_SIZES.has(size)) return null;
+  return { filePath, size };
+}
+
 export function startServer({
   rootDirectory = process.cwd(),
   host = '127.0.0.1',
   port = 4173,
   yucExporter = exportYucAssets,
+  tmdbSearch = searchTmdbTv,
+  tmdbArtwork = getTmdbArtwork,
+  fetchImpl = globalThis.fetch,
 } = {}) {
   const server = createServer(async (request, response) => {
     const requestPath = String(request.url ?? '').split(/[?#]/, 1)[0];
@@ -183,6 +206,54 @@ export function startServer({
         sendJson(response, 200, result);
       } catch (error) {
         sendJson(response, 500, { error: error.message });
+      }
+      return;
+    }
+
+    if (request.method === 'POST' && requestPath === '/api/tmdb/search') {
+      try {
+        const body = await readJsonBody(request);
+        const results = await tmdbSearch(body.query, { credential: tmdbCredential(body), fetchImpl });
+        sendJson(response, 200, { results });
+      } catch (error) {
+        sendJson(response, 500, { error: error.message });
+      }
+      return;
+    }
+
+    if (request.method === 'POST' && requestPath === '/api/tmdb/assets') {
+      try {
+        const body = await readJsonBody(request);
+        const result = await tmdbArtwork(body.seriesId, { credential: tmdbCredential(body), fetchImpl });
+        sendJson(response, 200, result);
+      } catch (error) {
+        sendJson(response, 500, { error: error.message });
+      }
+      return;
+    }
+
+    if (request.method === 'GET' && requestPath === '/api/tmdb/image') {
+      const imageRequest = parseTmdbImageRequest(request.url);
+      if (!imageRequest) {
+        sendJson(response, 400, { error: 'TMDB 图片路径或尺寸无效。' });
+        return;
+      }
+      try {
+        const upstream = await fetchImpl(`https://image.tmdb.org/t/p/${imageRequest.size}${imageRequest.filePath}`);
+        if (!upstream.ok) {
+          sendJson(response, upstream.status, { error: `TMDB 图片请求失败（HTTP ${upstream.status}）。` });
+          return;
+        }
+        const contentTypeHeader = upstream.headers.get('content-type') || 'application/octet-stream';
+        const body = Buffer.from(await upstream.arrayBuffer());
+        response.writeHead(200, {
+          'content-type': contentTypeHeader,
+          'cache-control': 'private, max-age=3600',
+          'x-content-type-options': 'nosniff',
+        });
+        response.end(body);
+      } catch (error) {
+        sendJson(response, 502, { error: `TMDB 图片代理失败：${error.message}` });
       }
       return;
     }
