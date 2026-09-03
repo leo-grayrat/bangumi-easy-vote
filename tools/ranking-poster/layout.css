@@ -13,7 +13,8 @@
   --stats-head-h: 22px;
   --stats-score-w: 158px;
   --stats-compare-w: 187px;
-  --stats-aux-h: 38px;
+  --stats-aux-h: 22px;
+  --header-line-gap: 18px;
 
   --row-1-y: 168px;
   --row-2-y: 317px;
@@ -33,7 +34,7 @@
   --c-label-red: #dd0000;
   --c-trend-up: #36c120;
   --c-trend-flat: #ffb018;
-  --c-trend-down: #ee1f1f;
+  --c-trend-down: #dd0000;
 
   --font-header-title: "Noto Sans CJK SC", "Noto Sans", Arial, sans-serif;
   --font-header-subtitle: "Noto Sans", "Noto Sans CJK SC", Arial, sans-serif;
@@ -65,6 +66,9 @@
   height: var(--header-h);
   background: var(--c-rank-top);
 }
+
+/* Pillow uses real glyph bounds plus --header-line-gap rather than fixed
+   baselines, so the title and subtitle keep visible vertical separation. */
 
 .ranking-row {
   position: absolute;
@@ -139,7 +143,6 @@
   text-shadow: 0 1px 2px rgba(0,0,0,.9);
 }
 
-/* Two primary cells above one full-width, trend-colored auxiliary row. */
 .ranking-row__stats {
   position: relative;
   display: grid;
@@ -159,9 +162,9 @@
 
 .ranking-row__comparison {
   display: grid;
-  grid-template-columns: 76px 1fr;
+  grid-template-columns: 72px 1fr;
   align-items: center;
-  padding: 0 7px;
+  padding: 0 6px;
 }
 
 .ranking-row__delta {
@@ -170,15 +173,13 @@
   text-align: center;
 }
 
-/* Trend arrows are connected rounded vector geometry, never Unicode glyphs. */
+/* Actual Pillow output pastes the extracted transparent reference PNG here;
+   this slot records its intended natural-scale footprint. */
 .ranking-row__trend-icon {
-  width: 70px;
-  height: 62px;
+  width: 66px;
+  height: 59px;
+  object-fit: contain;
 }
-
-.ranking-row__trend-icon[data-state="up"]   { color: var(--c-trend-up); }
-.ranking-row__trend-icon[data-state="flat"] { color: var(--c-trend-flat); }
-.ranking-row__trend-icon[data-state="down"] { color: var(--c-trend-down); }
 
 .ranking-row__aux {
   grid-column: 1 / -1;
@@ -188,7 +189,7 @@
   height: var(--stats-aux-h);
   color: #000;
   font-family: var(--font-small);
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 800;
   text-align: center;
 }
