@@ -200,9 +200,20 @@ export function cropTransform(imageWidth, imageHeight, viewportWidth, viewportHe
   return {sx, sy, sw, sh};
 }
 
+function serializableFontSources(input = {}) {
+  const output = {};
+  for (const [role, source] of Object.entries(input)) {
+    if (!source || typeof source !== 'object') continue;
+    const filename = String(source.filename ?? '').trim();
+    if (filename) output[role] = {filename};
+  }
+  return output;
+}
+
 export function serializePosterProject(project) {
   const normalized = normalizePosterProject(project);
   const items = normalized.items.map(({imageUrl: _imageUrl, ...item}) => ({...item}));
-  const {fontSources: _fontSources, ...style} = normalized.style;
+  const fontSources = serializableFontSources(normalized.style.fontSources);
+  const style = {...normalized.style, fontSources};
   return JSON.stringify({...normalized, style, items}, null, 2);
 }
