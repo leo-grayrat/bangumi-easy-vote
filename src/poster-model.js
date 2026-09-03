@@ -69,6 +69,11 @@ function normalizeCrop(input, focus) {
   };
 }
 
+function normalizeProviderIds(input = {}) {
+  const tmdb = Number(input?.tmdb);
+  return Number.isInteger(tmdb) && tmdb > 0 ? {tmdb} : {};
+}
+
 function normalizeItem(item = {}) {
   return {
     id: String(item.id || nextId()),
@@ -83,6 +88,7 @@ function normalizeItem(item = {}) {
     imageUrl: String(item.imageUrl ?? ''),
     crop: normalizeCrop(item.crop, item.focus),
     brightness: clamp(finite(item.brightness, 0.78), 0.1, 1.5),
+    providerIds: normalizeProviderIds(item.providerIds ?? item.provider_ids),
   };
 }
 
