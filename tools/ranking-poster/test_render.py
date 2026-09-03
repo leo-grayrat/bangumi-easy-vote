@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 import render
 
@@ -68,6 +68,29 @@ class RenderBehaviorTests(unittest.TestCase):
             render.L.stats_head_y + render.L.stats_head_h,
             render.L.row_y[0],
         )
+
+    def test_comparison_column_is_wider_than_score_column(self):
+        self.assertLess(render.L.stats_split, render.L.stats_w - render.L.stats_split)
+
+    def test_auxiliary_row_is_tall_enough_for_voters_and_bgm(self):
+        self.assertGreaterEqual(render.L.stats_foot_h, 32)
+
+    def test_comparison_text_does_not_embed_unicode_arrow(self):
+        bgm_label, delta_label, state = render.comparison_values(
+            {"score": 8.57, "bgm_score": 6.94}, "red", None
+        )
+        self.assertEqual(bgm_label, "BGM 6.94")
+        self.assertEqual(delta_label, "+1.63")
+        self.assertEqual(state, "up")
+        self.assertFalse(any(symbol in delta_label for symbol in "↑↓↔→←"))
+
+    def test_trend_icon_is_drawn_as_geometry(self):
+        image = Image.new("RGBA", (90, 70), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(image)
+        render.draw_trend_icon(draw, "up", (5, 5, 75, 65))
+        self.assertIsNotNone(image.getbbox())
+        self.assertGreater(image.getbbox()[2] - image.getbbox()[0], 20)
+        self.assertGreater(image.getbbox()[3] - image.getbbox()[1], 30)
 
 
 if __name__ == "__main__":
