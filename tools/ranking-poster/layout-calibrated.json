@@ -22,14 +22,14 @@
   },
   "footer": {
     "top": 1650,
-    "height": 150
+    "height": 150,
+    "background": "transparent"
   },
+  "canvas_background": "transparent",
   "colors": {
-    "body_bg": "#6AD2D6",
     "stats_bg": "#1E1E1E",
     "rank_top3": "#FF686F",
     "rank_normal": "#EF9448",
-    "footer_bg": "#FFE9CC",
     "yellow": "#FFB018",
     "green": "#36C120",
     "label_red": "#DD0000"
@@ -37,6 +37,7 @@
   "notes": [
     "Row starts are stored explicitly because the reference uses alternating 13/14 px gaps; a single integer gap accumulates visible drift by row 10.",
     "The right-side column headers appear only once above row 1 in the reference.",
-    "The anime image region is 699 px wide and should use cover crop with a configurable focal point."
+    "The anime image region is 699 px wide and should use cover crop with a configurable focal point.",
+    "The reference poster has a colored body/footer background, but this project intentionally exports those regions as transparent pixels for later composition."
   ]
 }
