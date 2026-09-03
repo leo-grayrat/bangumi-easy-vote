@@ -108,3 +108,72 @@ test('YUC stream reports each real exporter step before the final result', async
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test('TMDB search and artwork routes keep credentials local to the request', async () => {
+  const calls = [];
+  const server = startServer({
+    rootDirectory: root,
+    port: 0,
+    tmdbSearch: async (query, options) => {
+      calls.push(['search', query, options.credential]);
+      return [{ id: 42, name: '作品', year: '2026' }];
+    },
+    tmdbArtwork: async (seriesId, options) => {
+      calls.push(['assets', seriesId, options.credential]);
+      return { series: { id: seriesId, name: '作品' }, backdrops: [], posters: [], logos: [], episodes: [] };
+    },
+  });
+
+  try {
+    if (!server.listening) await once(server, 'listening');
+    const { port } = server.address();
+    const search = await fetch(`http://127.0.0.1:${port}/api/tmdb/search`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ query: '作品', credential: 'secret-token' }),
+    });
+    const assets = await fetch(`http://127.0.0.1:${port}/api/tmdb/assets`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ seriesId: 42, credential: 'secret-token' }),
+    });
+    assert.equal(search.status, 200);
+    assert.deepEqual(await search.json(), { results: [{ id: 42, name: '作品', year: '2026' }] });
+    assert.equal(assets.status, 200);
+    assert.equal((await assets.json()).series.id, 42);
+    assert.deepEqual(calls, [
+      ['search', '作品', 'secret-token'],
+      ['assets', 42, 'secret-token'],
+    ]);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('TMDB image route proxies only validated CDN paths and sizes', async () => {
+  const upstreamCalls = [];
+  const server = startServer({
+    rootDirectory: root,
+    port: 0,
+    fetchImpl: async (url) => {
+      upstreamCalls.push(String(url));
+      return new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'image/jpeg' } });
+    },
+  });
+
+  try {
+    if (!server.listening) await once(server, 'listening');
+    const { port } = server.address();
+    const ok = await fetch(`http://127.0.0.1:${port}/api/tmdb/image?path=%2Fabc.jpg&size=w780`);
+    assert.equal(ok.status, 200);
+    assert.equal(ok.headers.get('content-type'), 'image/jpeg');
+    assert.deepEqual([...new Uint8Array(await ok.arrayBuffer())], [1, 2, 3]);
+    assert.equal(upstreamCalls[0], 'https://image.tmdb.org/t/p/w780/abc.jpg');
+
+    const bad = await fetch(`http://127.0.0.1:${port}/api/tmdb/image?path=https%3A%2F%2Fevil.example%2Fx.jpg&size=w780`);
+    assert.equal(bad.status, 400);
+    assert.equal(upstreamCalls.length, 1);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
