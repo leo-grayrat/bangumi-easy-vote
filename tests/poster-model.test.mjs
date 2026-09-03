@@ -29,15 +29,16 @@ test('red and black modes use different comparison baselines', () => {
   assert.equal(trendState(5.5, 5.5, 'black'), 'up');
 });
 
-test('project normalization supplies stable crop and style defaults', () => {
-  const project = normalizePosterProject({items:[{title:'A', score:8, voters:3, bgm_score:7.2}]});
+test('project normalization supplies stable crop, style and provider defaults', () => {
+  const project = normalizePosterProject({items:[{title:'A', score:8, voters:3, bgm_score:7.2, providerIds:{tmdb:123}}]});
   assert.equal(project.mode, 'red');
   assert.deepEqual(project.items[0].crop, {zoom:1, offsetX:0, offsetY:0});
+  assert.deepEqual(project.items[0].providerIds, {tmdb:123});
   assert.equal(project.style.headerLineGap, POSTER_DEFAULTS.style.headerLineGap);
   assert.equal(project.style.deltaMinusYOffset, POSTER_DEFAULTS.style.deltaMinusYOffset);
 });
 
-test('poster serialization strips binary/session urls but keeps local filenames as reload hints', () => {
+test('poster serialization strips binary/session urls but keeps provider ids and local filenames as reload hints', () => {
   const project = createPosterProject({
     style: {
       fontFamilies: {anime: 'LocalAnime'},
@@ -46,11 +47,12 @@ test('poster serialization strips binary/session urls but keeps local filenames 
         metric: 'blob:legacy-font',
       },
     },
-    items:[{title:'A', score:8, voters:3, bgmScore:7.2, imageName:'a.jpg', imageUrl:'blob:image'}],
+    items:[{title:'A', score:8, voters:3, bgmScore:7.2, imageName:'a.jpg', imageUrl:'blob:image', providerIds:{tmdb:456}}],
   });
   const parsed = JSON.parse(serializePosterProject(project));
   assert.equal(parsed.items[0].imageUrl, undefined);
   assert.equal(parsed.items[0].imageName, 'a.jpg');
+  assert.deepEqual(parsed.items[0].providerIds, {tmdb:456});
   assert.deepEqual(parsed.style.fontSources, {anime: {filename: 'anime-local.ttf'}});
   assert.equal(parsed.style.fontFamilies.anime, 'LocalAnime');
   assert.doesNotMatch(JSON.stringify(parsed), /blob:/);
