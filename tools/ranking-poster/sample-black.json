@@ -1,12 +1,9 @@
 {
   "mode": "black",
-  "brand": "现视妍 ACG部",
   "brand_color": [255, 102, 113],
   "title": "7月新番中期黑榜 BOTTOM 10",
   "subtitle": "2026 MID-SEASON RESULTS",
   "assets": "tools/ranking-poster/assets",
-  "footer": "基于本次有效问卷统计 · 补丁已纳入",
-  "footer_detail": "BGM 为 Bangumi 当前评分 · 箭头按黑榜规则比较",
   "thresholds": {
     "red_up": 1.0,
     "red_down": 0.4,
