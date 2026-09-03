@@ -1,0 +1,28 @@
+{
+  "mode": "black",
+  "brand": "现视妍 ACG部",
+  "brand_color": [255, 102, 113],
+  "title": "7月新番中期黑榜 BOTTOM 10",
+  "subtitle": "2026 MID-SEASON RESULTS",
+  "assets": "tools/ranking-poster/assets",
+  "footer": "基于本次有效问卷统计 · 补丁已纳入",
+  "footer_detail": "BGM 为 Bangumi 当前评分 · 箭头按黑榜规则比较",
+  "thresholds": {
+    "red_up": 1.0,
+    "red_down": 0.4,
+    "black_up": -0.4,
+    "black_down": -1.0
+  },
+  "items": [
+    {"title": "BanG Dream! YUME∞MITA", "score": 3.14, "voters": 7, "bgm_score": 5.5408, "image": "b01.jpg", "focus": [0.50, 0.50]},
+    {"title": "转学后班上的清纯可爱美少女 竟是小时候玩在一起的哥们", "score": 4.25, "voters": 4, "bgm_score": 4.9799, "image": "b02.jpg", "focus": [0.50, 0.50]},
+    {"title": "二十世纪电气目录", "score": 4.33, "voters": 6, "bgm_score": 5.4682, "image": "b03.jpg", "focus": [0.50, 0.50]},
+    {"title": "世界舞动", "score": 4.80, "voters": 5, "bgm_score": 5.4706, "image": "b04.jpg", "focus": [0.50, 0.50]},
+    {"title": "擅长逃跑的殿下 第2期", "score": 6.20, "voters": 5, "bgm_score": 6.8240, "image": "b05.jpg", "focus": [0.50, 0.50]},
+    {"title": "GrowUpShow 向日葵马戏团", "score": 6.44, "voters": 9, "bgm_score": 7.1388, "image": "b06.jpg", "focus": [0.50, 0.50]},
+    {"title": "尼古喵喵", "score": 6.75, "voters": 8, "bgm_score": 7.2887, "image": "b07.jpg", "focus": [0.50, 0.50]},
+    {"title": "少女怪兽焦糖味", "score": 6.83, "voters": 6, "bgm_score": 6.5218, "image": "b08.jpg", "focus": [0.50, 0.50]},
+    {"title": "躲在超市后门抽烟的两人", "score": 7.00, "voters": 7, "bgm_score": 7.0039, "image": "b09.jpg", "focus": [0.50, 0.50]},
+    {"title": "虽然我是不完美恶女", "score": 7.00, "voters": 6, "bgm_score": 6.9932, "image": "b10.jpg", "focus": [0.50, 0.50]}
+  ]
+}
