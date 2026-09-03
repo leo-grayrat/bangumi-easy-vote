@@ -1,0 +1,43 @@
+{
+  "reference_canvas": [1200, 1800],
+  "header": {
+    "height": 146,
+    "brand_width": 344
+  },
+  "rows": {
+    "left": 22,
+    "height": 136,
+    "starts": [168, 317, 467, 616, 766, 915, 1065, 1214, 1364, 1514],
+    "rank_width": 110,
+    "visual_width": 699,
+    "stats_width": 345,
+    "right_exclusive": 1176
+  },
+  "stats": {
+    "split": [185, 160],
+    "column_header_y": 156,
+    "column_header_height": 28,
+    "footer_height": 20,
+    "labels_repeat": false
+  },
+  "footer": {
+    "top": 1650,
+    "height": 150,
+    "background": "transparent"
+  },
+  "canvas_background": "transparent",
+  "colors": {
+    "stats_bg": "#1E1E1E",
+    "rank_top3": "#FF686F",
+    "rank_normal": "#EF9448",
+    "yellow": "#FFB018",
+    "green": "#36C120",
+    "label_red": "#DD0000"
+  },
+  "notes": [
+    "Row starts are stored explicitly because the reference uses alternating 13/14 px gaps; a single integer gap accumulates visible drift by row 10.",
+    "The right-side column headers appear only once above row 1 in the reference.",
+    "The anime image region is 699 px wide and should use cover crop with a configurable focal point.",
+    "The reference poster has a colored body/footer background, but this project intentionally exports those regions as transparent pixels for later composition."
+  ]
+}

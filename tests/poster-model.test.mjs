@@ -1,0 +1,69 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  POSTER_DEFAULTS,
+  createPosterProject,
+  normalizePosterProject,
+  sortPosterItems,
+  trendState,
+  serializePosterProject,
+  cropTransform,
+} from '../src/poster-model.js';
+
+test('red and black sorting break score ties by more voters', () => {
+  const items = [
+    { title: 'A', score: 8, voters: 4 },
+    { title: 'B', score: 8, voters: 6 },
+    { title: 'C', score: 7, voters: 9 },
+  ];
+  assert.deepEqual(sortPosterItems(items, 'red').map(x => x.title), ['B', 'A', 'C']);
+  assert.deepEqual(sortPosterItems(items, 'black').map(x => x.title), ['C', 'B', 'A']);
+});
+
+test('red and black modes use different comparison baselines', () => {
+  assert.equal(trendState(8.8, 8.0, 'red'), 'flat');
+  assert.equal(trendState(8.8, 7.5, 'red'), 'up');
+  assert.equal(trendState(8.0, 8.0, 'red'), 'down');
+  assert.equal(trendState(4.8, 5.5, 'black'), 'flat');
+  assert.equal(trendState(4.0, 5.5, 'black'), 'down');
+  assert.equal(trendState(5.5, 5.5, 'black'), 'up');
+});
+
+test('project normalization supplies stable crop and style defaults', () => {
+  const project = normalizePosterProject({items:[{title:'A', score:8, voters:3, bgm_score:7.2}]});
+  assert.equal(project.mode, 'red');
+  assert.deepEqual(project.items[0].crop, {zoom:1, offsetX:0, offsetY:0});
+  assert.equal(project.style.headerLineGap, POSTER_DEFAULTS.style.headerLineGap);
+  assert.equal(project.style.deltaMinusYOffset, POSTER_DEFAULTS.style.deltaMinusYOffset);
+});
+
+test('poster serialization removes session-only image urls and font sources', () => {
+  const project = createPosterProject({
+    style: {fontFamilies: {anime: 'LocalAnime'}, fontSources: {anime: 'blob:font'}},
+    items:[{title:'A', score:8, voters:3, bgmScore:7.2, imageName:'a.jpg', imageUrl:'blob:image'}],
+  });
+  const parsed = JSON.parse(serializePosterProject(project));
+  assert.equal(parsed.items[0].imageUrl, undefined);
+  assert.equal(parsed.items[0].imageName, 'a.jpg');
+  assert.equal(parsed.style.fontSources, undefined);
+  assert.equal(parsed.style.fontFamilies.anime, 'LocalAnime');
+});
+
+test('cropTransform returns centered cover at zoom 1', () => {
+  const crop = cropTransform(1000, 1000, 699, 136, {zoom:1, offsetX:0, offsetY:0});
+  assert.ok(Math.abs(crop.sw - 1000) < 1e-9);
+  assert.ok(Math.abs(crop.sh - (1000 * 136 / 699)) < 1e-9);
+  assert.ok(Math.abs(crop.sx) < 1e-9);
+  assert.ok(crop.sy > 0);
+});
+
+test('cropTransform clamps zoom and offsets inside source image', () => {
+  const crop = cropTransform(1600, 900, 699, 136, {zoom:2, offsetX:999, offsetY:-999});
+  assert.ok(crop.sw < 1600);
+  assert.ok(crop.sh < 900);
+  assert.ok(crop.sx >= 0 && crop.sx + crop.sw <= 1600 + 1e-9);
+  assert.ok(crop.sy >= 0 && crop.sy + crop.sh <= 900 + 1e-9);
+  const clampedZoom = cropTransform(1600, 900, 699, 136, {zoom:0.1, offsetX:0, offsetY:0});
+  const base = cropTransform(1600, 900, 699, 136, {zoom:1, offsetX:0, offsetY:0});
+  assert.deepEqual(clampedZoom, base);
+});
