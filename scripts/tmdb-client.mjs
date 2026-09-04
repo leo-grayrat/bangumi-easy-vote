@@ -100,7 +100,7 @@ async function recentEpisodeStills(seriesId, series, options) {
   const episodes = [];
 
   for (const season of seasons) {
-    if (episodes.length >= 3) break;
+    if (episodes.length >= 5) break;
     if (season.air_date && !airedOnOrBefore(season.air_date, today)) continue;
     const seasonNumber = Number(season.season_number);
     const detail = await tmdbJson(`/tv/${seriesId}/season/${seasonNumber}`, {
@@ -118,7 +118,7 @@ async function recentEpisodeStills(seriesId, series, options) {
         airDate: String(episode.air_date ?? ''),
         filePath: String(episode.still_path),
       });
-      if (episodes.length >= 3) break;
+      if (episodes.length >= 5) break;
     }
   }
   return episodes;
