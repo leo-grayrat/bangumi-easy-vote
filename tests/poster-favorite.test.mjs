@@ -42,6 +42,11 @@ test('favorite arrows reserve up for large rises, flat for ordinary rises and do
   assert.equal(favoriteTrendState(6, 6), 'flat');
 });
 
+test('favorite rank difference keeps an explicit plus or minus sign beside the arrow', async () => {
+  const renderer = await source('src/poster-renderer.js');
+  assert.match(renderer, /function drawRankDifference[\s\S]*?const negative = delta < 0;[\s\S]*?const sign = negative \? '−' : '\+';[\s\S]*?Math\.abs\(Math\.round\(delta\)\)/);
+});
+
 test('current favorite sample is a Top10 with the agreed four-number inputs', async () => {
   const sample = JSON.parse(await source('tools/ranking-poster/sample-favorite.json'));
   const project = normalizePosterProject(sample);
