@@ -254,8 +254,21 @@ function drawDelta(ctx, delta, x1, y1, x2, y2, project) {
 }
 
 function drawRankDifference(ctx, delta, x1, y1, x2, y2, project) {
-  centerText(ctx, String(Math.abs(Math.round(delta))), x1, y1, x2, y2, {
-    font: fontString(900, project.style.fontSizes.trendDelta, project.style.fontFamilies.trendDelta),
+  const family = project.style.fontFamilies.trendDelta;
+  const size = project.style.fontSizes.trendDelta;
+  ctx.font = fontString(900, size, family);
+  const negative = delta < 0;
+  const sign = negative ? '−' : '+';
+  const magnitude = String(Math.abs(Math.round(delta)));
+  const magWidth = ctx.measureText(magnitude).width;
+  const totalWidth = POSTER_LAYOUT.deltaSignWidth + magWidth;
+  const left = (x1 + x2 - totalWidth) / 2;
+  centerText(ctx, sign, left, y1, left + POSTER_LAYOUT.deltaSignWidth, y2, {
+    font: fontString(900, size, family),
+    yOffset: negative ? project.style.deltaMinusYOffset : 0,
+  });
+  centerText(ctx, magnitude, left + POSTER_LAYOUT.deltaSignWidth, y1, left + totalWidth, y2, {
+    font: fontString(900, size, family),
   });
 }
 
