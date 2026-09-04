@@ -10,6 +10,14 @@ import {loadTrendIcons} from './poster-assets.js';
 import {POSTER_LAYOUT, renderPoster, rowAtCanvasPoint} from './poster-renderer.js';
 import {openProjectStore} from './project-store.js';
 import {createTmdbPicker} from './tmdb-picker.js';
+import {
+  cachePosterImage,
+  deletePosterImage,
+  loadPosterWorkspace,
+  posterAssetUrl,
+  posterScopeForProjectId,
+  savePosterWorkspace,
+} from './poster-persistence.js';
 
 const RECENT_PROJECT_KEY = 'bangumi-easy-vote:recent-project';
 const SAMPLE_PATHS = {
@@ -68,6 +76,9 @@ let cropItemId = '';
 let dragPoint = null;
 let statusTimer = null;
 let tmdbPicker = null;
+let posterScope = 'standalone';
+let stateSaveTimer = null;
+let persistenceReady = false;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -107,8 +118,9 @@ function updateProjectLinks(projectId) {
 async function loadSourceProjectContext() {
   const url = new URL(window.location.href);
   const projectId = url.searchParams.get('project')?.trim() || recentProjectId();
+  posterScope = posterScopeForProjectId(projectId);
   if (!projectId) {
-    elements.sourceProjectName.textContent = '独立海报项目；视觉图和字体只在当前浏览器会话中使用。';
+    elements.sourceProjectName.textContent = `独立海报项目；状态保存在 .local/poster-projects/${posterScope}.json，视觉图缓存在 .local/poster-assets/${posterScope}/。`;
     return;
   }
 
@@ -122,15 +134,17 @@ async function loadSourceProjectContext() {
     const store = await openProjectStore();
     const source = await store.loadProject(projectId);
     elements.sourceProjectName.textContent = source?.title
-      ? `当前问卷项目：${source.title}。海报数据独立保存，不会改动问卷。`
-      : '未找到对应问卷项目；海报仍可独立编辑。';
+      ? `当前问卷项目：${source.title}。海报状态保存在 .local/poster-projects/${posterScope}.json，视觉图缓存在 .local/poster-assets/${posterScope}/。`
+      : `未找到对应问卷项目；海报仍会保存在本地 .local/poster-projects/${posterScope}.json。`;
   } catch {
-    elements.sourceProjectName.textContent = '无法读取问卷项目；海报仍可独立编辑。';
+    elements.sourceProjectName.textContent = `无法读取问卷项目；海报仍会保存在本地 .local/poster-projects/${posterScope}.json。`;
   }
 }
 
 function clearImageResources() {
-  for (const url of resources.imageUrls.values()) URL.revokeObjectURL(url);
+  for (const url of resources.imageUrls.values()) {
+    if (String(url).startsWith('blob:')) URL.revokeObjectURL(url);
+  }
   resources.images.clear();
   resources.imageUrls.clear();
 }
@@ -149,10 +163,37 @@ function syncProjectControls() {
   elements.entryCount.textContent = `${project.items.length} 项`;
 }
 
+function serializableProjectObject() {
+  return JSON.parse(serializePosterProject(project));
+}
+
+async function persistProjectState({silent = true} = {}) {
+  if (!persistenceReady) return;
+  try {
+    await savePosterWorkspace(posterScope, serializableProjectObject());
+    if (!silent) setStatus('已保存到本地', true);
+  } catch (error) {
+    if (!silent) setMessage(elements.outputMessage, `本地海报保存失败：${error.message}`, true);
+    throw error;
+  }
+}
+
+function scheduleProjectSave(delay = 180) {
+  if (!persistenceReady) return;
+  if (stateSaveTimer) window.clearTimeout(stateSaveTimer);
+  stateSaveTimer = window.setTimeout(() => {
+    stateSaveTimer = null;
+    persistProjectState().catch((error) => {
+      setMessage(elements.outputMessage, `本地海报保存失败：${error.message}`, true);
+    });
+  }, delay);
+}
+
 function renderNow() {
   renderPoster(elements.canvas, project, resources);
   elements.entryCount.textContent = `${project.items.length} 项`;
   if (cropItemId) drawCropPreview();
+  scheduleProjectSave();
 }
 
 function inputField(labelText, value, onInput, options = {}) {
@@ -187,7 +228,74 @@ function selectItem(itemId, {scroll = false} = {}) {
   }
 }
 
-function imageInputFor(item, cropButton, nameElement) {
+async function decodeImageUrl(url) {
+  const image = new Image();
+  image.src = url;
+  if (image.decode) await image.decode();
+  else await new Promise((resolve, reject) => {
+    image.onload = resolve;
+    image.onerror = () => reject(new Error('浏览器无法解码该图片'));
+  });
+  return image;
+}
+
+async function attachCachedAsset(item, asset, {resetCrop = false} = {}) {
+  const url = posterAssetUrl(asset);
+  if (!url) throw new Error('本地图片缓存引用无效。');
+  const image = await decodeImageUrl(url);
+  const oldUrl = resources.imageUrls.get(item.id);
+  if (oldUrl && String(oldUrl).startsWith('blob:')) URL.revokeObjectURL(oldUrl);
+  resources.imageUrls.set(item.id, url);
+  resources.images.set(item.id, image);
+  item.imageUrl = url;
+  item.imageAsset = asset;
+  item.imageName = asset.fileName || item.imageName;
+  if (resetCrop) item.crop = {zoom: 1, offsetX: 0, offsetY: 0};
+  selectedItemId = item.id;
+}
+
+async function restoreProjectImages() {
+  const missing = [];
+  for (const item of project.items) {
+    if (!item.imageAsset) continue;
+    try {
+      await attachCachedAsset(item, item.imageAsset);
+    } catch {
+      missing.push(item);
+    }
+  }
+  return missing;
+}
+
+async function attachImage(item, file, {source = 'local'} = {}) {
+  if (!file.type.startsWith('image/')) throw new Error('请选择图片文件');
+  const previous = item.imageAsset;
+  const asset = await cachePosterImage(file, posterScope, source);
+  try {
+    await attachCachedAsset(item, asset, {resetCrop: true});
+  } catch (error) {
+    deletePosterImage(asset).catch(() => {});
+    throw error;
+  }
+  if (previous && (previous.scope !== asset.scope || previous.assetId !== asset.assetId)) {
+    deletePosterImage(previous).catch(() => {});
+  }
+  await persistProjectState({silent: true});
+}
+
+function imageStatusText(item) {
+  if (item.imageAsset) {
+    const filename = item.imageAsset.fileName || item.imageName || item.imageAsset.assetId;
+    const path = item.imageAsset.relativePath || `.local/poster-assets/${item.imageAsset.scope}/${item.imageAsset.assetId}`;
+    return resources.images.has(item.id)
+      ? `已缓存：${filename} · ${path}`
+      : `缓存素材缺失：${filename} · ${path}`;
+  }
+  if (item.imageName) return `旧项目仅记录文件名：${item.imageName}（重新导入一次即可缓存并自动恢复）`;
+  return '未导入图片';
+}
+
+function imageInputFor(item) {
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
@@ -197,13 +305,15 @@ function imageInputFor(item, cropButton, nameElement) {
     const file = input.files?.[0];
     if (!file) return;
     try {
-      await attachImage(item, file);
-      nameElement.textContent = file.name;
-      cropButton.disabled = false;
+      setStatus('正在缓存图片');
+      await attachImage(item, file, {source: 'local'});
       setMessage(elements.dataMessage, '');
+      renderEntryList();
       renderNow();
+      setStatus('图片已缓存', true);
     } catch (error) {
-      setMessage(elements.dataMessage, `图片读取失败：${error.message}`);
+      setMessage(elements.dataMessage, `图片读取或缓存失败：${error.message}`, true);
+      setStatus('图片缓存失败', true);
     } finally {
       input.value = '';
     }
@@ -287,12 +397,8 @@ function renderEntryList() {
     cropButton.addEventListener('click', () => openCrop(item));
     const imageName = document.createElement('span');
     imageName.className = 'poster-entry-image-name';
-    imageName.textContent = resources.images.has(item.id)
-      ? item.imageName
-      : item.imageName
-        ? `项目记录：${item.imageName}（请重新选择文件）`
-        : '未导入图片';
-    const imageInput = imageInputFor(item, cropButton, imageName);
+    imageName.textContent = imageStatusText(item);
+    const imageInput = imageInputFor(item);
     fileLabel.htmlFor = imageInput.id;
     imageRow.append(tmdbButton, fileLabel, imageInput, cropButton, imageName);
 
@@ -305,31 +411,6 @@ function renderEntryList() {
 function updateManualLines(item, first, second) {
   item.titleLines = [first.trim(), second.trim()].filter(Boolean).slice(0, 2);
   renderNow();
-}
-
-async function attachImage(item, file) {
-  if (!file.type.startsWith('image/')) throw new Error('请选择图片文件');
-  const oldUrl = resources.imageUrls.get(item.id);
-  if (oldUrl) URL.revokeObjectURL(oldUrl);
-  const url = URL.createObjectURL(file);
-  const image = new Image();
-  image.src = url;
-  try {
-    if (image.decode) await image.decode();
-    else await new Promise((resolve, reject) => {
-      image.onload = resolve;
-      image.onerror = () => reject(new Error('浏览器无法解码该图片'));
-    });
-  } catch (error) {
-    URL.revokeObjectURL(url);
-    throw error;
-  }
-  resources.imageUrls.set(item.id, url);
-  resources.images.set(item.id, image);
-  item.imageUrl = url;
-  item.imageName = file.name;
-  item.crop = {zoom: 1, offsetX: 0, offsetY: 0};
-  selectedItemId = item.id;
 }
 
 function renderStyleList() {
@@ -365,7 +446,7 @@ function renderStyleList() {
         setMessage(elements.outputMessage, '');
         renderNow();
       } catch (error) {
-        setMessage(elements.outputMessage, `字体载入失败：${error.message}`);
+        setMessage(elements.outputMessage, `字体载入失败：${error.message}`, true);
       } finally {
         fontFile.value = '';
       }
@@ -392,7 +473,7 @@ async function loadLocalFont(role, file) {
   await face.load();
   document.fonts.add(face);
   const fallback = role === 'headerSubtitle' || ['rank', 'label', 'metric', 'trendDelta'].includes(role)
-    ? 'Arial, sans-serif'
+    ? '"Century Gothic", sans-serif'
     : '"Noto Sans SC", "Microsoft YaHei UI", sans-serif';
   project.style.fontFamilies[role] = `"${family}", ${fallback}`;
   project.style.fontSources = project.style.fontSources || {};
@@ -466,11 +547,15 @@ async function applyProject(raw, message = '') {
   project = normalizePosterProject(raw);
   selectedItemId = project.items[0]?.id || '';
   cropItemId = '';
+  const missing = await restoreProjectImages();
   syncProjectControls();
   renderStyleList();
   renderEntryList();
   renderNow();
-  setMessage(elements.dataMessage, message, Boolean(message));
+  const missingMessage = missing.length
+    ? `${missing.length} 张本地缓存图片不存在；条目中保留了原文件名和缓存路径，可以重新导入替换。`
+    : '';
+  setMessage(elements.dataMessage, [message, missingMessage].filter(Boolean).join(' '), missing.length > 0);
 }
 
 async function loadBuiltin(mode) {
@@ -479,9 +564,10 @@ async function loadBuiltin(mode) {
     const response = await fetch(SAMPLE_PATHS[mode], {cache: 'no-store'});
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     await applyProject(await response.json());
+    await persistProjectState({silent: true});
     setStatus('已载入', true);
   } catch (error) {
-    setMessage(elements.dataMessage, `载入内置榜单失败：${error.message}`);
+    setMessage(elements.dataMessage, `载入内置榜单失败：${error.message}`, true);
     setStatus('载入失败', true);
   }
 }
@@ -489,7 +575,8 @@ async function loadBuiltin(mode) {
 async function importProjectFile(file) {
   const text = await file.text();
   const parsed = JSON.parse(text);
-  await applyProject(parsed, '项目 JSON 不包含图片和字体二进制，请按条目重新选择本地文件。');
+  await applyProject(parsed, '已载入项目 JSON；带本地缓存引用的图片会自动恢复，旧版只有文件名的图片需要重新导入一次。');
+  await persistProjectState({silent: true});
 }
 
 function safeFilename(extension) {
@@ -517,7 +604,7 @@ function downloadProjectJson() {
 function downloadPng() {
   elements.canvas.toBlob((blob) => {
     if (!blob) {
-      setMessage(elements.outputMessage, '浏览器未能生成 PNG。');
+      setMessage(elements.outputMessage, '浏览器未能生成 PNG。', true);
       return;
     }
     downloadBlob(blob, safeFilename('png'));
@@ -535,7 +622,7 @@ function bindControls() {
       await importProjectFile(file);
       setStatus('项目已载入', true);
     } catch (error) {
-      setMessage(elements.dataMessage, `JSON 读取失败：${error.message}`);
+      setMessage(elements.dataMessage, `JSON 读取失败：${error.message}`, true);
     } finally {
       elements.projectFile.value = '';
     }
@@ -607,7 +694,10 @@ function bindControls() {
     drawCropPreview();
     renderNow();
   });
-  const stopDrag = () => { dragPoint = null; };
+  const stopDrag = () => {
+    dragPoint = null;
+    scheduleProjectSave(0);
+  };
   elements.cropCanvas.addEventListener('pointerup', stopDrag);
   elements.cropCanvas.addEventListener('pointercancel', stopDrag);
   elements.cropCanvas.addEventListener('wheel', (event) => {
@@ -623,26 +713,52 @@ function bindControls() {
   elements.cropDialog.addEventListener('close', () => {
     cropItemId = '';
     dragPoint = null;
+    scheduleProjectSave(0);
   });
 
-  window.addEventListener('beforeunload', clearImageResources);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') persistProjectState({silent: true}).catch(() => {});
+  });
+  window.addEventListener('beforeunload', () => {
+    if (stateSaveTimer) window.clearTimeout(stateSaveTimer);
+    clearImageResources();
+  });
 }
 
 async function init() {
   try {
     tmdbPicker = createTmdbPicker({
       onUseImage: async (item, file) => {
-        await attachImage(item, file);
+        await attachImage(item, file, {source: 'tmdb'});
         renderEntryList();
         renderNow();
         openCrop(item);
       },
-      onMappingChange: () => renderEntryList(),
+      onMappingChange: () => {
+        renderEntryList();
+        scheduleProjectSave(0);
+      },
     });
     bindControls();
     await loadSourceProjectContext();
     resources.trendIcons = await loadTrendIcons();
-    await loadBuiltin('red');
+
+    let saved = null;
+    let stateError = '';
+    try {
+      saved = await loadPosterWorkspace(posterScope);
+    } catch (error) {
+      stateError = error.message;
+    }
+    persistenceReady = true;
+
+    if (saved) {
+      await applyProject(saved, '已从本地工作区恢复上次的海报状态和缓存图片。');
+      setStatus('已恢复本地海报', true);
+    } else {
+      await loadBuiltin('red');
+      if (stateError) setMessage(elements.dataMessage, `本地海报缓存读取失败：${stateError}`, true);
+    }
     elements.workspace.hidden = false;
     elements.loadError.hidden = true;
   } catch (error) {
