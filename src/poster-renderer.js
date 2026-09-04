@@ -1,6 +1,7 @@
 import {
   controversyTrendState,
   cropTransform,
+  favoriteTrendState,
   posterDisplayRows,
   trendState,
 } from './poster-model.js';
@@ -252,6 +253,12 @@ function drawDelta(ctx, delta, x1, y1, x2, y2, project) {
   });
 }
 
+function drawRankDifference(ctx, delta, x1, y1, x2, y2, project) {
+  centerText(ctx, String(Math.abs(Math.round(delta))), x1, y1, x2, y2, {
+    font: fontString(900, project.style.fontSizes.trendDelta, project.style.fontFamilies.trendDelta),
+  });
+}
+
 function drawRow(ctx, project, rowInfo, rankIndex, resources) {
   const {item, section, displayRank} = rowInfo;
   const y = POSTER_LAYOUT.rowY[rankIndex];
@@ -281,22 +288,31 @@ function drawRow(ctx, project, rowInfo, rankIndex, resources) {
   drawAnimeTitle(ctx, item, visualX, y, project.style);
 
   const controversy = project.mode === 'controversy';
-  const metric = controversy ? Number(item.stdDev) : Number(item.score);
-  centerText(ctx, Number.isFinite(metric) ? metric.toFixed(2) : '--', statsX, y, split, footY, {
+  const favorite = project.mode === 'favorite';
+  const metric = controversy ? Number(item.stdDev) : favorite ? Number(item.favoritePoints) : Number(item.score);
+  const metricText = favorite
+    ? Number.isFinite(metric) ? String(Math.round(metric)) : '--'
+    : Number.isFinite(metric) ? metric.toFixed(2) : '--';
+  centerText(ctx, metricText, statsX, y, split, footY, {
     font: fontString(900, project.style.fontSizes.metric, project.style.fontFamilies.metric),
   });
 
-  const comparisonValue = controversy ? item.bgmStdDev : item.bgmScore;
+  const comparisonValue = controversy ? item.bgmStdDev : favorite ? item.scoreRank : item.bgmScore;
   const hasComparison = comparisonValue !== null && comparisonValue !== undefined && comparisonValue !== '';
   const state = controversy
     ? controversyTrendState(item.stdDev, item.bgmStdDev, section, project.thresholds)
-    : trendState(item.score, item.bgmScore, project.mode, project.thresholds);
+    : favorite
+      ? favoriteTrendState(displayRank, item.scoreRank, project.thresholds)
+      : trendState(item.score, item.bgmScore, project.mode, project.thresholds);
   const delta = controversy
     ? Number(item.stdDev) - Number(item.bgmStdDev ?? item.stdDev)
-    : Number(item.score) - Number(item.bgmScore ?? item.score);
+    : favorite
+      ? Number(item.scoreRank ?? displayRank) - displayRank
+      : Number(item.score) - Number(item.bgmScore ?? item.score);
   drawContainedImage(ctx, resources.trendIcons?.[state], split + 6, y + 27, split + 78, y + 91);
   if (hasComparison) {
-    drawDelta(ctx, delta, split + 79, y, POSTER_LAYOUT.right - 4, footY, project);
+    if (favorite) drawRankDifference(ctx, delta, split + 79, y, POSTER_LAYOUT.right - 4, footY, project);
+    else drawDelta(ctx, delta, split + 79, y, POSTER_LAYOUT.right - 4, footY, project);
   } else {
     centerText(ctx, '--', split + 79, y, POSTER_LAYOUT.right - 4, footY, {
       font: fontString(900, project.style.fontSizes.trendDelta, project.style.fontFamilies.trendDelta),
@@ -309,14 +325,20 @@ function drawRow(ctx, project, rowInfo, rankIndex, resources) {
   const stripText = state === 'down' ? COLORS.white : COLORS.black;
   const leftFoot = controversy
     ? `AVG ${Number(item.score).toFixed(2)} · N${item.voters}`
-    : `投票数 ${item.voters}`;
+    : favorite
+      ? `TOP5 ${item.top5Count}`
+      : `投票数 ${item.voters}`;
   const rightFoot = controversy
     ? item.bgmStdDev === null || item.bgmStdDev === undefined
       ? 'BGM SD --'
       : `BGM SD ${Number(item.bgmStdDev).toFixed(2)}`
-    : item.bgmScore === null || item.bgmScore === undefined
-      ? 'BGM --'
-      : `BGM ${Number(item.bgmScore).toFixed(2)}`;
+    : favorite
+      ? item.scoreRank === null || item.scoreRank === undefined
+        ? 'SCORE --'
+        : `SCORE #${item.scoreRank}`
+      : item.bgmScore === null || item.bgmScore === undefined
+        ? 'BGM --'
+        : `BGM ${Number(item.bgmScore).toFixed(2)}`;
   centerText(ctx, leftFoot, statsX, footY, split, bottom, {
     font: fontString(800, project.style.fontSizes.aux, project.style.fontFamilies.aux),
     fill: stripText,
@@ -336,7 +358,12 @@ function drawStatsHeaders(ctx, project) {
   ctx.fillRect(x, y, POSTER_LAYOUT.statsSplit, h);
   ctx.fillStyle = COLORS.white;
   ctx.fillRect(split, y, POSTER_LAYOUT.statsWidth - POSTER_LAYOUT.statsSplit, h);
-  centerText(ctx, project.mode === 'controversy' ? 'STD. DEV.' : 'AVERAGE SCORE', x, y, split, y + h, {
+  const metricLabel = project.mode === 'controversy'
+    ? 'STD. DEV.'
+    : project.mode === 'favorite'
+      ? 'FAVORITE PTS'
+      : 'AVERAGE SCORE';
+  centerText(ctx, metricLabel, x, y, split, y + h, {
     font: fontString(800, project.style.fontSizes.label, project.style.fontFamilies.label),
   });
   centerText(ctx, project.comparisonLabel, split, y, POSTER_LAYOUT.right, y + h, {
