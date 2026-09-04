@@ -38,6 +38,7 @@
             <div class="poster-toolbar">
               <button class="bgm-button bgm-button--secondary" id="load-red-sample" type="button">载入当前红榜</button>
               <button class="bgm-button bgm-button--secondary" id="load-black-sample" type="button">载入当前黑榜</button>
+              <button class="bgm-button bgm-button--secondary" id="load-controversy-sample" type="button">载入当前争议 / 一致榜</button>
               <label class="bgm-button bgm-button--secondary bgm-button--color-blue poster-file-button" for="poster-project-file">导入榜单 JSON</label>
               <input id="poster-project-file" class="poster-hidden-file" type="file" accept="application/json,.json" />
             </div>
@@ -50,6 +51,7 @@
                   <select id="poster-mode">
                     <option value="red">红榜</option>
                     <option value="black">黑榜</option>
+                    <option value="controversy">争议 / 一致榜</option>
                   </select>
                 </span>
               </label>
@@ -69,7 +71,7 @@
             <div class="section-heading">
               <div>
                 <h2 id="poster-entries-heading">榜单条目</h2>
-                <p class="poster-section-note">分数或投票数改动后按当前榜单规则重新排序。</p>
+                <p class="poster-section-note">红 / 黑榜按平均分重排；争议模式取社内标准差最高 5 部与最低 5 部，两段分别编号。</p>
               </div>
             </div>
             <div class="poster-entry-list" id="poster-entry-list"></div>
