@@ -20,6 +20,7 @@ const PUBLIC_FILES = new Set([
   'form-import-findings.md',
   'tools/ranking-poster/sample.json',
   'tools/ranking-poster/sample-black.json',
+  'tools/ranking-poster/sample-controversy.json',
 ]);
 
 const MIME_TYPES = new Map([
