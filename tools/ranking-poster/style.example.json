@@ -1,0 +1,28 @@
+{
+  "fonts": {
+    "cjk": null,
+    "latin": null,
+    "header_title": null,
+    "header_subtitle": null,
+    "anime": null,
+    "anime_small": null,
+    "rank": null,
+    "label": null,
+    "metric": null,
+    "trend_delta": null,
+    "aux": null
+  },
+  "font_sizes": {
+    "header_title": 60,
+    "header_subtitle": 34,
+    "anime": 36,
+    "anime_small": 31,
+    "rank": 74,
+    "label": 14,
+    "metric": 46,
+    "trend_delta": 34,
+    "aux": 14
+  },
+  "header_line_gap": 18,
+  "delta_minus_y_offset": 4
+}
