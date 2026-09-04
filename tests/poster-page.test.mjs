@@ -32,9 +32,16 @@ test('poster page keeps the fixed export and crop dimensions', async () => {
   assert.match(poster, /id="download-poster-project"/);
 });
 
-test('poster editor uses browser-local image, font and PNG APIs without Excel ingestion', async () => {
-  const editor = await source('src/poster-editor.js');
-  assert.match(editor, /URL\.createObjectURL\(file\)/);
+test('poster editor persists image files through the local server while keeping font and PNG browser APIs', async () => {
+  const [editor, persistence] = await Promise.all([
+    source('src/poster-editor.js'),
+    source('src/poster-persistence.js'),
+  ]);
+  assert.match(editor, /cachePosterImage\(/);
+  assert.match(editor, /loadPosterWorkspace\(/);
+  assert.match(editor, /imageAsset/);
+  assert.match(persistence, /\/api\/poster\/assets/);
+  assert.match(persistence, /\/api\/poster\/state/);
   assert.match(editor, /new FontFace\(/);
   assert.match(editor, /\.toBlob\(/);
   assert.doesNotMatch(editor, /\.xlsx|Excel|spreadsheet/i);
