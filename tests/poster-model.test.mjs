@@ -2,8 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   POSTER_DEFAULTS,
+  controversyTrendState,
   createPosterProject,
   normalizePosterProject,
+  posterDisplayRows,
   sortPosterItems,
   trendState,
   serializePosterProject,
@@ -29,6 +31,33 @@ test('red and black modes use different comparison baselines', () => {
   assert.equal(trendState(5.5, 5.5, 'black'), 'up');
 });
 
+test('controversy mode selects highest five and lowest five standard deviations with separate ranks', () => {
+  const items = Array.from({length: 12}, (_, index) => ({
+    id: `item-${index}`,
+    title: `Item ${index}`,
+    stdDev: index + 0.1,
+    voters: index % 3 + 4,
+  }));
+  const rows = posterDisplayRows(items, 'controversy');
+  assert.equal(rows.length, 10);
+  assert.deepEqual(rows.slice(0, 5).map((row) => row.item.stdDev), [11.1, 10.1, 9.1, 8.1, 7.1]);
+  assert.deepEqual(rows.slice(5).map((row) => row.item.stdDev), [0.1, 1.1, 2.1, 3.1, 4.1]);
+  assert.deepEqual(rows.map((row) => row.displayRank), [1,2,3,4,5,1,2,3,4,5]);
+  assert.deepEqual(rows.map((row) => row.section), [
+    'controversial','controversial','controversial','controversial','controversial',
+    'consistent','consistent','consistent','consistent','consistent',
+  ]);
+});
+
+test('controversy mode uses different VS Bangumi thresholds for high and low sections', () => {
+  assert.equal(controversyTrendState(2.0, 1.2, 'controversial'), 'up');
+  assert.equal(controversyTrendState(1.7, 1.2, 'controversial'), 'flat');
+  assert.equal(controversyTrendState(1.3, 1.2, 'controversial'), 'down');
+  assert.equal(controversyTrendState(0.5, 1.0, 'consistent'), 'flat');
+  assert.equal(controversyTrendState(0.8, 1.0, 'consistent'), 'up');
+  assert.equal(controversyTrendState(0.2, 1.0, 'consistent'), 'down');
+});
+
 test('project normalization supplies stable crop, style, provider and cached image defaults', () => {
   const project = normalizePosterProject({items:[{
     title:'A',
@@ -52,6 +81,23 @@ test('project normalization supplies stable crop, style, provider and cached ima
   assert.equal(project.items[0].imageName, '原图.png');
   assert.equal(project.style.headerLineGap, POSTER_DEFAULTS.style.headerLineGap);
   assert.equal(project.style.deltaMinusYOffset, POSTER_DEFAULTS.style.deltaMinusYOffset);
+});
+
+test('controversy normalization keeps SD fields and more than ten candidates for extreme selection', () => {
+  const project = normalizePosterProject({
+    mode: 'controversy',
+    items: Array.from({length: 24}, (_, index) => ({
+      title: `Item ${index}`,
+      score: 7,
+      voters: 4,
+      stdDev: index / 10,
+      bgmStdDev: 1.2,
+    })),
+  });
+  assert.equal(project.mode, 'controversy');
+  assert.equal(project.items.length, 24);
+  assert.equal(project.items[5].stdDev, 0.5);
+  assert.equal(project.items[5].bgmStdDev, 1.2);
 });
 
 test('poster latin presets use Century Gothic instead of Arial', () => {
