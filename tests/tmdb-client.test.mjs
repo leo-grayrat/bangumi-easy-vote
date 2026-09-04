@@ -28,20 +28,22 @@ test('search normalizes TMDB TV candidates and authenticates with bearer token',
   assert.equal(calls[0][1].headers.Authorization, 'Bearer eyJ.foo.bar');
 });
 
-test('artwork returns series images plus three most recent aired episode stills across seasons', async () => {
+test('artwork returns series images plus five most recent aired episode stills across seasons', async () => {
   const routes = new Map([
     ['/3/tv/77?language=zh-CN', { id: 77, name: '作品', original_name: 'Work', first_air_date: '2026-01-01', seasons: [
-      { season_number: 1, air_date: '2026-01-01', episode_count: 2 },
-      { season_number: 2, air_date: '2026-07-01', episode_count: 2 },
+      { season_number: 1, air_date: '2026-01-01', episode_count: 3 },
+      { season_number: 2, air_date: '2026-07-01', episode_count: 3 },
     ] }],
     ['/3/tv/77/images?include_image_language=zh%2Cen%2Cja%2Cnull', { backdrops: [{ file_path: '/bg.jpg', width: 1920, height: 1080, vote_average: 5.1 }], posters: [{ file_path: '/poster.jpg', width: 1000, height: 1500 }], logos: [{ file_path: '/logo.png', width: 800, height: 300 }] }],
     ['/3/tv/77/season/2?language=zh-CN', { episodes: [
       { episode_number: 1, name: 'S2E1', air_date: '2026-07-01', still_path: '/s2e1.jpg' },
       { episode_number: 2, name: 'S2E2', air_date: '2026-07-08', still_path: '/s2e2.jpg' },
+      { episode_number: 3, name: 'S2E3', air_date: '2026-07-15', still_path: '/s2e3.jpg' },
     ] }],
     ['/3/tv/77/season/1?language=zh-CN', { episodes: [
       { episode_number: 1, name: 'S1E1', air_date: '2026-01-01', still_path: '/s1e1.jpg' },
-      { episode_number: 2, name: 'S1E2', air_date: '2026-01-08', still_path: null },
+      { episode_number: 2, name: 'S1E2', air_date: '2026-01-08', still_path: '/s1e2.jpg' },
+      { episode_number: 3, name: 'S1E3', air_date: '2026-01-15', still_path: null },
     ] }],
   ]);
   const fetchImpl = async (url) => {
@@ -57,8 +59,10 @@ test('artwork returns series images plus three most recent aired episode stills 
   assert.equal(result.posters[0].filePath, '/poster.jpg');
   assert.equal(result.logos[0].filePath, '/logo.png');
   assert.deepEqual(result.episodes.map((e) => [e.seasonNumber, e.episodeNumber, e.filePath]), [
+    [2, 3, '/s2e3.jpg'],
     [2, 2, '/s2e2.jpg'],
     [2, 1, '/s2e1.jpg'],
+    [1, 2, '/s1e2.jpg'],
     [1, 1, '/s1e1.jpg'],
   ]);
 });
