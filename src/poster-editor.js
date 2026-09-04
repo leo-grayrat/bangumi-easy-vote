@@ -3,8 +3,8 @@ import {
   cropTransform,
   createPosterProject,
   normalizePosterProject,
+  posterDisplayRows,
   serializePosterProject,
-  sortPosterItems,
 } from './poster-model.js';
 import {loadTrendIcons} from './poster-assets.js';
 import {POSTER_LAYOUT, renderPoster, rowAtCanvasPoint} from './poster-renderer.js';
@@ -23,6 +23,7 @@ const RECENT_PROJECT_KEY = 'bangumi-easy-vote:recent-project';
 const SAMPLE_PATHS = {
   red: 'tools/ranking-poster/sample.json',
   black: 'tools/ranking-poster/sample-black.json',
+  controversy: 'tools/ranking-poster/sample-controversy.json',
 };
 const STYLE_ROLES = [
   ['headerTitle', 'headerTitle', '主标题'],
@@ -30,7 +31,7 @@ const STYLE_ROLES = [
   ['anime', 'anime', '动画标题'],
   ['rank', 'rank', '排名数字'],
   ['label', 'label', '栏目标记'],
-  ['metric', 'metric', '平均分'],
+  ['metric', 'metric', '主数值（均分 / SD）'],
   ['trendDelta', 'trendDelta', '差值'],
   ['aux', 'aux', '底部小字'],
 ];
@@ -48,6 +49,7 @@ const elements = {
   entryList: document.querySelector('#poster-entry-list'),
   headerLineGap: document.querySelector('#header-line-gap'),
   loadBlack: document.querySelector('#load-black-sample'),
+  loadControversy: document.querySelector('#load-controversy-sample'),
   loadError: document.querySelector('#load-error'),
   loadRed: document.querySelector('#load-red-sample'),
   minusYOffset: document.querySelector('#minus-y-offset'),
@@ -82,6 +84,12 @@ let persistenceReady = false;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+function modeLabel(mode) {
+  if (mode === 'black') return '黑榜';
+  if (mode === 'controversy') return '争议 / 一致榜';
+  return '红榜';
 }
 
 function setStatus(message, reset = false) {
@@ -149,13 +157,13 @@ function clearImageResources() {
   resources.imageUrls.clear();
 }
 
-function sortedItems() {
-  return sortPosterItems(project.items, project.mode).slice(0, 10);
+function displayRows() {
+  return posterDisplayRows(project.items, project.mode).slice(0, 10);
 }
 
 function syncProjectControls() {
   elements.mode.value = project.mode;
-  elements.modeLabel.textContent = project.mode === 'black' ? '黑榜' : '红榜';
+  elements.modeLabel.textContent = modeLabel(project.mode);
   elements.title.value = project.title;
   elements.subtitle.value = project.subtitle;
   elements.headerLineGap.value = String(project.style.headerLineGap);
@@ -321,18 +329,34 @@ function imageInputFor(item) {
   return input;
 }
 
+function appendControversySectionHeading(section) {
+  const heading = document.createElement('p');
+  heading.className = 'poster-section-note';
+  heading.textContent = section === 'controversial'
+    ? 'MOST CONTROVERSIAL · 社内标准差最高 5 部'
+    : 'MOST CONSISTENT · 社内标准差最低 5 部';
+  elements.entryList.append(heading);
+}
+
 function renderEntryList() {
   elements.entryList.replaceChildren();
-  const items = sortedItems();
-  if (!items.length) {
+  const rows = displayRows();
+  if (!rows.length) {
     const empty = document.createElement('p');
     empty.className = 'poster-section-note';
-    empty.textContent = '当前没有榜单条目。请载入红榜、黑榜或一个整理后的 JSON。';
+    empty.textContent = '当前没有榜单条目。请载入内置榜单或一个整理后的 JSON。';
     elements.entryList.append(empty);
     return;
   }
 
-  items.forEach((item, rankIndex) => {
+  let previousSection = '';
+  rows.forEach((rowInfo) => {
+    const {item, displayRank, section} = rowInfo;
+    if (project.mode === 'controversy' && section !== previousSection) {
+      appendControversySectionHeading(section);
+      previousSection = section;
+    }
+
     const card = document.createElement('article');
     card.className = 'poster-entry-card';
     card.dataset.itemId = item.id;
@@ -343,7 +367,7 @@ function renderEntryList() {
 
     const rank = document.createElement('span');
     rank.className = 'poster-entry-rank';
-    rank.textContent = String(rankIndex + 1);
+    rank.textContent = String(displayRank);
 
     const body = document.createElement('div');
     body.className = 'poster-entry-body';
@@ -373,11 +397,25 @@ function renderEntryList() {
       renderNow();
     }, {type: 'number', step: 1, min: 0});
     voters.input.addEventListener('change', renderEntryList);
-    const bgm = inputField('BGM 分数', item.bgmScore ?? '', (value) => {
-      item.bgmScore = value === '' ? null : Number(value);
-      renderNow();
-    }, {type: 'number', step: 0.0001});
-    numeric.append(score.label, voters.label, bgm.label);
+
+    if (project.mode === 'controversy') {
+      const stdDev = inputField('社内 SD', item.stdDev, (value) => {
+        item.stdDev = Math.max(0, Number(value) || 0);
+        renderNow();
+      }, {type: 'number', step: 0.001, min: 0});
+      stdDev.input.addEventListener('change', renderEntryList);
+      const bgmStdDev = inputField('BGM SD', item.bgmStdDev ?? '', (value) => {
+        item.bgmStdDev = value === '' ? null : Math.max(0, Number(value) || 0);
+        renderNow();
+      }, {type: 'number', step: 0.001, min: 0});
+      numeric.append(score.label, voters.label, stdDev.label, bgmStdDev.label);
+    } else {
+      const bgm = inputField('BGM 分数', item.bgmScore ?? '', (value) => {
+        item.bgmScore = value === '' ? null : Number(value);
+        renderNow();
+      }, {type: 'number', step: 0.0001});
+      numeric.append(score.label, voters.label, bgm.label);
+    }
 
     const imageRow = document.createElement('div');
     imageRow.className = 'poster-entry-image-row';
@@ -545,7 +583,7 @@ function currentCropItem() {
 async function applyProject(raw, message = '') {
   clearImageResources();
   project = normalizePosterProject(raw);
-  selectedItemId = project.items[0]?.id || '';
+  selectedItemId = displayRows()[0]?.item.id || project.items[0]?.id || '';
   cropItemId = '';
   const missing = await restoreProjectImages();
   syncProjectControls();
@@ -615,6 +653,7 @@ function downloadPng() {
 function bindControls() {
   elements.loadRed.addEventListener('click', () => loadBuiltin('red'));
   elements.loadBlack.addEventListener('click', () => loadBuiltin('black'));
+  elements.loadControversy.addEventListener('click', () => loadBuiltin('controversy'));
   elements.projectFile.addEventListener('change', async () => {
     const file = elements.projectFile.files?.[0];
     if (!file) return;
@@ -628,8 +667,8 @@ function bindControls() {
     }
   });
   elements.mode.addEventListener('change', () => {
-    project.mode = elements.mode.value === 'black' ? 'black' : 'red';
-    elements.modeLabel.textContent = project.mode === 'black' ? '黑榜' : '红榜';
+    project.mode = ['red', 'black', 'controversy'].includes(elements.mode.value) ? elements.mode.value : 'red';
+    elements.modeLabel.textContent = modeLabel(project.mode);
     renderEntryList();
     renderNow();
   });
@@ -658,7 +697,7 @@ function bindControls() {
     const y = (event.clientY - rect.top) * elements.canvas.height / rect.height;
     const row = rowAtCanvasPoint(x, y);
     if (row === null) return;
-    const item = sortedItems()[row];
+    const item = displayRows()[row]?.item;
     if (item) selectItem(item.id, {scroll: true});
   });
 
