@@ -38,6 +38,14 @@ test('project normalization supplies stable crop, style and provider defaults', 
   assert.equal(project.style.deltaMinusYOffset, POSTER_DEFAULTS.style.deltaMinusYOffset);
 });
 
+test('poster latin presets use Century Gothic instead of Arial', () => {
+  const families = POSTER_DEFAULTS.style.fontFamilies;
+  for (const role of ['headerSubtitle', 'rank', 'label', 'metric', 'trendDelta']) {
+    assert.match(families[role], /Century Gothic/);
+    assert.doesNotMatch(families[role], /Arial/);
+  }
+});
+
 test('poster serialization strips binary/session urls but keeps provider ids and local filenames as reload hints', () => {
   const project = createPosterProject({
     style: {
