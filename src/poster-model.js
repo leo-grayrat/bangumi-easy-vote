@@ -9,6 +9,8 @@ const DEFAULT_THRESHOLDS = Object.freeze({
   controversyHighDown: 0.20,
   controversyLowUp: -0.30,
   controversyLowDown: -0.70,
+  favoriteUp: 5,
+  favoriteDown: 0,
 });
 
 const DEFAULT_FONT_FAMILIES = Object.freeze({
@@ -65,6 +67,13 @@ function nullableFinite(value) {
   return Number.isFinite(number) ? number : null;
 }
 
+function nullablePositiveInteger(value) {
+  const number = nullableFinite(value);
+  if (number === null) return null;
+  const rounded = Math.round(number);
+  return rounded > 0 ? rounded : null;
+}
+
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -112,6 +121,9 @@ function normalizeItem(item = {}) {
     bgmScore: nullableFinite(item.bgmScore ?? item.bgm_score),
     stdDev: Math.max(0, finite(item.stdDev ?? item.std_dev ?? item.standardDeviation ?? item.standard_deviation, 0)),
     bgmStdDev: nullableFinite(item.bgmStdDev ?? item.bgm_std_dev ?? item.bgmStandardDeviation ?? item.bgm_standard_deviation),
+    favoritePoints: Math.max(0, finite(item.favoritePoints ?? item.favorite_points, 0)),
+    top5Count: Math.max(0, Math.round(finite(item.top5Count ?? item.top5_count, 0))),
+    scoreRank: nullablePositiveInteger(item.scoreRank ?? item.score_rank),
     imageName: String(item.imageName ?? item.image ?? imageAsset?.fileName ?? ''),
     imageUrl: String(item.imageUrl ?? ''),
     imageAsset,
@@ -131,6 +143,8 @@ function normalizeThresholds(input = {}) {
     controversyHighDown: finite(input.controversyHighDown ?? input.controversy_high_down, DEFAULT_THRESHOLDS.controversyHighDown),
     controversyLowUp: finite(input.controversyLowUp ?? input.controversy_low_up, DEFAULT_THRESHOLDS.controversyLowUp),
     controversyLowDown: finite(input.controversyLowDown ?? input.controversy_low_down, DEFAULT_THRESHOLDS.controversyLowDown),
+    favoriteUp: finite(input.favoriteUp ?? input.favorite_up, DEFAULT_THRESHOLDS.favoriteUp),
+    favoriteDown: finite(input.favoriteDown ?? input.favorite_down, DEFAULT_THRESHOLDS.favoriteDown),
   };
 }
 
@@ -169,22 +183,27 @@ function normalizeStyle(input = {}) {
 
 export function normalizePosterProject(input = {}) {
   const requestedMode = String(input.mode ?? '').trim();
-  const mode = requestedMode === 'black' || requestedMode === 'controversy' ? requestedMode : 'red';
+  const mode = ['black', 'controversy', 'favorite'].includes(requestedMode) ? requestedMode : 'red';
   const defaultTitle = mode === 'black'
     ? '7月新番中期黑榜 BOTTOM 10'
     : mode === 'controversy'
       ? '7月新番中期争议度'
-      : POSTER_DEFAULTS.title;
+      : mode === 'favorite'
+        ? '7月新番中期喜爱度 TOP 10'
+        : POSTER_DEFAULTS.title;
   const defaultSubtitle = mode === 'controversy'
     ? 'MOST CONTROVERSIAL / MOST CONSISTENT'
-    : POSTER_DEFAULTS.subtitle;
+    : mode === 'favorite'
+      ? 'FAVORITE TOP 10 ANIME'
+      : POSTER_DEFAULTS.subtitle;
+  const defaultComparisonLabel = mode === 'favorite' ? 'VS SCORE RANK' : POSTER_DEFAULTS.comparisonLabel;
   const maxItems = mode === 'controversy' ? 100 : 10;
   return {
     version: 1,
     mode,
     title: String(input.title ?? defaultTitle),
     subtitle: String(input.subtitle ?? defaultSubtitle),
-    comparisonLabel: String(input.comparisonLabel ?? input.comparison_label ?? POSTER_DEFAULTS.comparisonLabel),
+    comparisonLabel: String(input.comparisonLabel ?? input.comparison_label ?? defaultComparisonLabel),
     thresholds: normalizeThresholds(input.thresholds),
     style: normalizeStyle(input.style ?? input),
     items: (Array.isArray(input.items) ? input.items : []).map(normalizeItem).slice(0, maxItems),
@@ -206,7 +225,10 @@ export function sortPosterItems(items, mode = 'red') {
   if (mode === 'controversy') {
     return copy.sort((a, b) => finite(b.stdDev) - finite(a.stdDev) || finite(b.voters) - finite(a.voters));
   }
-  throw new Error("mode must be 'red', 'black' or 'controversy'");
+  if (mode === 'favorite') {
+    return copy.sort((a, b) => finite(b.favoritePoints) - finite(a.favoritePoints) || finite(b.top5Count) - finite(a.top5Count));
+  }
+  throw new Error("mode must be 'red', 'black', 'controversy' or 'favorite'");
 }
 
 export function posterDisplayRows(items, mode = 'red') {
@@ -264,6 +286,15 @@ export function controversyTrendState(stdDev, bgmStdDev, section, thresholds = {
     return 'flat';
   }
   throw new Error("section must be 'controversial' or 'consistent'");
+}
+
+export function favoriteTrendState(favoriteRank, scoreRank, thresholds = {}) {
+  if (scoreRank === null || scoreRank === undefined || scoreRank === '') return 'flat';
+  const t = normalizeThresholds(thresholds);
+  const delta = finite(scoreRank) - finite(favoriteRank);
+  if (delta >= t.favoriteUp) return 'up';
+  if (delta < t.favoriteDown) return 'down';
+  return 'flat';
 }
 
 export function cropTransform(imageWidth, imageHeight, viewportWidth, viewportHeight, crop = {}) {
