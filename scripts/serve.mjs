@@ -5,6 +5,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { exportYucAssets } from './yuc-exporter.mjs';
+import { handlePosterRequest } from './poster-api.mjs';
 import { getTmdbArtwork, searchTmdbTv } from './tmdb-client.mjs';
 
 const { createServer } = http;
@@ -217,6 +218,10 @@ export function startServer({
 } = {}) {
   const server = createServer(async (request, response) => {
     const requestPath = String(request.url ?? '').split(/[?#]/, 1)[0];
+
+    if (await handlePosterRequest({ request, response, rootDirectory })) {
+      return;
+    }
 
     if (request.method === 'POST' && requestPath === '/api/yuc/import-stream') {
       try {
