@@ -9,12 +9,12 @@ const DEFAULT_THRESHOLDS = Object.freeze({
 
 const DEFAULT_FONT_FAMILIES = Object.freeze({
   headerTitle: '"Noto Sans SC", "Microsoft YaHei UI", sans-serif',
-  headerSubtitle: '"Arial", "Noto Sans SC", sans-serif',
+  headerSubtitle: '"Century Gothic", "Noto Sans SC", sans-serif',
   anime: '"Noto Sans SC", "Microsoft YaHei UI", sans-serif',
-  rank: '"Arial", sans-serif',
-  label: '"Arial", sans-serif',
-  metric: '"Arial", sans-serif',
-  trendDelta: '"Arial", sans-serif',
+  rank: '"Century Gothic", sans-serif',
+  label: '"Century Gothic", sans-serif',
+  metric: '"Century Gothic", sans-serif',
+  trendDelta: '"Century Gothic", sans-serif',
   aux: '"Noto Sans SC", "Microsoft YaHei UI", sans-serif',
 });
 
