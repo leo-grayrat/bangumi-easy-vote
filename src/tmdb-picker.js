@@ -213,7 +213,7 @@ export function createTmdbPicker({onUseImage, onMappingChange} = {}) {
     summary.append(rematch);
     assets.append(summary);
 
-    renderImageGroup('最近 3 集剧照', data.episodes || [], (asset) => ({
+    renderImageGroup('最近 5 集剧照', data.episodes || [], (asset) => ({
       label: `S${asset.seasonNumber}E${asset.episodeNumber}${asset.name ? ` · ${asset.name}` : ''}`,
       meta: asset.airDate || '',
       filename: safeImageFilename(`tmdb-s${asset.seasonNumber}e${asset.episodeNumber}`, asset.filePath),
