@@ -1,11 +1,13 @@
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
-import { createServer } from 'node:http';
+import * as http from 'node:http';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { exportYucAssets } from './yuc-exporter.mjs';
 import { getTmdbArtwork, searchTmdbTv } from './tmdb-client.mjs';
+
+const { createServer } = http;
 
 const PUBLIC_FILES = new Set([
   'index.html',
@@ -33,6 +35,57 @@ const MIME_TYPES = new Map([
 ]);
 const TMDB_IMAGE_SIZES = new Set(['w185', 'w300', 'w500', 'w780', 'w1280', 'original']);
 const TMDB_IMAGE_PATH = /^\/[a-z0-9._/-]+\.(?:jpe?g|png|webp)$/i;
+
+function proxyValue(env, name) {
+  return String(env?.[name] ?? env?.[name.toLowerCase()] ?? '').trim();
+}
+
+function mergedNoProxy(env) {
+  const existing = proxyValue(env, 'NO_PROXY')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  for (const local of ['localhost', '127.0.0.1', '::1']) {
+    if (!existing.includes(local)) existing.push(local);
+  }
+  return existing.join(',');
+}
+
+export function configureEnvironmentProxy({ env = process.env, httpModule = http } = {}) {
+  const hasProxy = Boolean(
+    proxyValue(env, 'HTTP_PROXY') || proxyValue(env, 'HTTPS_PROXY') || proxyValue(env, 'ALL_PROXY'),
+  );
+  if (!hasProxy) return { enabled: false, unsupported: false, message: '' };
+
+  if (typeof httpModule.setGlobalProxyFromEnv !== 'function') {
+    return {
+      enabled: false,
+      unsupported: true,
+      message: '检测到 HTTP(S)_PROXY，但当前 Node 不支持运行时环境代理；请使用 Node 24.14+，或用 NODE_USE_ENV_PROXY=1 启动。',
+    };
+  }
+
+  const proxyEnv = {
+    ...env,
+    NO_PROXY: mergedNoProxy(env),
+  };
+  httpModule.setGlobalProxyFromEnv(proxyEnv);
+  return {
+    enabled: true,
+    unsupported: false,
+    message: `已启用环境代理；NO_PROXY=${proxyEnv.NO_PROXY}`,
+  };
+}
+
+export function describeFetchError(error) {
+  const message = String(error?.message ?? error ?? '未知错误');
+  const cause = error?.cause;
+  if (!cause) return message;
+  const code = String(cause.code ?? '').trim();
+  const causeMessage = String(cause.message ?? cause).trim();
+  const detail = [code, causeMessage].filter(Boolean).join(': ');
+  return detail ? `${message}；原因：${detail}` : message;
+}
 
 export function contentType(filename) {
   return MIME_TYPES.get(path.extname(filename).toLowerCase()) ?? 'application/octet-stream';
@@ -216,7 +269,7 @@ export function startServer({
         const results = await tmdbSearch(body.query, { credential: tmdbCredential(body), fetchImpl });
         sendJson(response, 200, { results });
       } catch (error) {
-        sendJson(response, 500, { error: error.message });
+        sendJson(response, 500, { error: describeFetchError(error) });
       }
       return;
     }
@@ -227,7 +280,7 @@ export function startServer({
         const result = await tmdbArtwork(body.seriesId, { credential: tmdbCredential(body), fetchImpl });
         sendJson(response, 200, result);
       } catch (error) {
-        sendJson(response, 500, { error: error.message });
+        sendJson(response, 500, { error: describeFetchError(error) });
       }
       return;
     }
@@ -253,7 +306,7 @@ export function startServer({
         });
         response.end(body);
       } catch (error) {
-        sendJson(response, 502, { error: `TMDB 图片代理失败：${error.message}` });
+        sendJson(response, 502, { error: `TMDB 图片代理失败：${describeFetchError(error)}` });
       }
       return;
     }
@@ -294,6 +347,10 @@ export function startServer({
 
 const isDirectRun = process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url;
 if (isDirectRun) {
+  const proxy = configureEnvironmentProxy();
+  if (proxy.message) {
+    process.stdout.write(`网络代理：${proxy.message}\n`);
+  }
   const requestedPort = Number.parseInt(process.env.BANGUMI_VOTE_PORT ?? '4173', 10);
   startServer({ port: Number.isFinite(requestedPort) ? requestedPort : 4173 });
 }
