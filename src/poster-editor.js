@@ -24,6 +24,7 @@ const SAMPLE_PATHS = {
   red: 'tools/ranking-poster/sample.json',
   black: 'tools/ranking-poster/sample-black.json',
   controversy: 'tools/ranking-poster/sample-controversy.json',
+  favorite: 'tools/ranking-poster/sample-favorite.json',
 };
 const STYLE_ROLES = [
   ['headerTitle', 'headerTitle', '主标题'],
@@ -31,7 +32,7 @@ const STYLE_ROLES = [
   ['anime', 'anime', '动画标题'],
   ['rank', 'rank', '排名数字'],
   ['label', 'label', '栏目标记'],
-  ['metric', 'metric', '主数值（均分 / SD）'],
+  ['metric', 'metric', '主数值（均分 / SD / 喜爱分）'],
   ['trendDelta', 'trendDelta', '差值'],
   ['aux', 'aux', '底部小字'],
 ];
@@ -50,6 +51,7 @@ const elements = {
   headerLineGap: document.querySelector('#header-line-gap'),
   loadBlack: document.querySelector('#load-black-sample'),
   loadControversy: document.querySelector('#load-controversy-sample'),
+  loadFavorite: document.querySelector('#load-favorite-sample'),
   loadError: document.querySelector('#load-error'),
   loadRed: document.querySelector('#load-red-sample'),
   minusYOffset: document.querySelector('#minus-y-offset'),
@@ -89,6 +91,7 @@ function clamp(value, min, max) {
 function modeLabel(mode) {
   if (mode === 'black') return '黑榜';
   if (mode === 'controversy') return '争议 / 一致榜';
+  if (mode === 'favorite') return '喜爱榜';
   return '红榜';
 }
 
@@ -387,34 +390,54 @@ function renderEntryList() {
 
     const numeric = document.createElement('div');
     numeric.className = 'poster-entry-inline';
-    const score = inputField('社内均分', item.score, (value) => {
-      item.score = Number(value) || 0;
-      renderNow();
-    }, {type: 'number', step: 0.01});
-    score.input.addEventListener('change', renderEntryList);
-    const voters = inputField('投票数', item.voters, (value) => {
-      item.voters = Math.max(0, Math.round(Number(value) || 0));
-      renderNow();
-    }, {type: 'number', step: 1, min: 0});
-    voters.input.addEventListener('change', renderEntryList);
 
-    if (project.mode === 'controversy') {
-      const stdDev = inputField('社内 SD', item.stdDev, (value) => {
-        item.stdDev = Math.max(0, Number(value) || 0);
+    if (project.mode === 'favorite') {
+      const favoritePoints = inputField('喜爱分', item.favoritePoints, (value) => {
+        item.favoritePoints = Math.max(0, Number(value) || 0);
         renderNow();
-      }, {type: 'number', step: 0.001, min: 0});
-      stdDev.input.addEventListener('change', renderEntryList);
-      const bgmStdDev = inputField('BGM SD', item.bgmStdDev ?? '', (value) => {
-        item.bgmStdDev = value === '' ? null : Math.max(0, Number(value) || 0);
+      }, {type: 'number', step: 1, min: 0});
+      favoritePoints.input.addEventListener('change', renderEntryList);
+      const top5Count = inputField('TOP5 人数', item.top5Count, (value) => {
+        item.top5Count = Math.max(0, Math.round(Number(value) || 0));
         renderNow();
-      }, {type: 'number', step: 0.001, min: 0});
-      numeric.append(score.label, voters.label, stdDev.label, bgmStdDev.label);
+      }, {type: 'number', step: 1, min: 0});
+      top5Count.input.addEventListener('change', renderEntryList);
+      const scoreRank = inputField('社内评分排名', item.scoreRank ?? '', (value) => {
+        const number = Math.round(Number(value) || 0);
+        item.scoreRank = value === '' || number <= 0 ? null : number;
+        renderNow();
+      }, {type: 'number', step: 1, min: 1});
+      numeric.append(favoritePoints.label, top5Count.label, scoreRank.label);
     } else {
-      const bgm = inputField('BGM 分数', item.bgmScore ?? '', (value) => {
-        item.bgmScore = value === '' ? null : Number(value);
+      const score = inputField('社内均分', item.score, (value) => {
+        item.score = Number(value) || 0;
         renderNow();
-      }, {type: 'number', step: 0.0001});
-      numeric.append(score.label, voters.label, bgm.label);
+      }, {type: 'number', step: 0.01});
+      score.input.addEventListener('change', renderEntryList);
+      const voters = inputField('投票数', item.voters, (value) => {
+        item.voters = Math.max(0, Math.round(Number(value) || 0));
+        renderNow();
+      }, {type: 'number', step: 1, min: 0});
+      voters.input.addEventListener('change', renderEntryList);
+
+      if (project.mode === 'controversy') {
+        const stdDev = inputField('社内 SD', item.stdDev, (value) => {
+          item.stdDev = Math.max(0, Number(value) || 0);
+          renderNow();
+        }, {type: 'number', step: 0.001, min: 0});
+        stdDev.input.addEventListener('change', renderEntryList);
+        const bgmStdDev = inputField('BGM SD', item.bgmStdDev ?? '', (value) => {
+          item.bgmStdDev = value === '' ? null : Math.max(0, Number(value) || 0);
+          renderNow();
+        }, {type: 'number', step: 0.001, min: 0});
+        numeric.append(score.label, voters.label, stdDev.label, bgmStdDev.label);
+      } else {
+        const bgm = inputField('BGM 分数', item.bgmScore ?? '', (value) => {
+          item.bgmScore = value === '' ? null : Number(value);
+          renderNow();
+        }, {type: 'number', step: 0.0001});
+        numeric.append(score.label, voters.label, bgm.label);
+      }
     }
 
     const imageRow = document.createElement('div');
@@ -654,6 +677,7 @@ function bindControls() {
   elements.loadRed.addEventListener('click', () => loadBuiltin('red'));
   elements.loadBlack.addEventListener('click', () => loadBuiltin('black'));
   elements.loadControversy.addEventListener('click', () => loadBuiltin('controversy'));
+  elements.loadFavorite.addEventListener('click', () => loadBuiltin('favorite'));
   elements.projectFile.addEventListener('change', async () => {
     const file = elements.projectFile.files?.[0];
     if (!file) return;
@@ -667,7 +691,8 @@ function bindControls() {
     }
   });
   elements.mode.addEventListener('change', () => {
-    project.mode = ['red', 'black', 'controversy'].includes(elements.mode.value) ? elements.mode.value : 'red';
+    project.mode = ['red', 'black', 'controversy', 'favorite'].includes(elements.mode.value) ? elements.mode.value : 'red';
+    project.comparisonLabel = project.mode === 'favorite' ? 'VS SCORE RANK' : 'VS BANGUMI';
     elements.modeLabel.textContent = modeLabel(project.mode);
     renderEntryList();
     renderNow();
