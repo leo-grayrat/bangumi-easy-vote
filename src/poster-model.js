@@ -5,6 +5,10 @@ const DEFAULT_THRESHOLDS = Object.freeze({
   redDown: 0.4,
   blackUp: -0.4,
   blackDown: -1.0,
+  controversyHighUp: 0.70,
+  controversyHighDown: 0.20,
+  controversyLowUp: -0.30,
+  controversyLowDown: -0.70,
 });
 
 const DEFAULT_FONT_FAMILIES = Object.freeze({
@@ -55,6 +59,12 @@ function finite(value, fallback = 0) {
   return Number.isFinite(number) ? number : fallback;
 }
 
+function nullableFinite(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -97,9 +107,11 @@ function normalizeItem(item = {}) {
     titleLines: Array.isArray(item.titleLines ?? item.title_lines)
       ? (item.titleLines ?? item.title_lines).map(String).filter(Boolean).slice(0, 2)
       : [],
-    score: finite(item.score, 0),
+    score: finite(item.score ?? item.averageScore ?? item.average_score, 0),
     voters: Math.max(0, Math.round(finite(item.voters, 0))),
-    bgmScore: item.bgmScore ?? item.bgm_score ?? null,
+    bgmScore: nullableFinite(item.bgmScore ?? item.bgm_score),
+    stdDev: Math.max(0, finite(item.stdDev ?? item.std_dev ?? item.standardDeviation ?? item.standard_deviation, 0)),
+    bgmStdDev: nullableFinite(item.bgmStdDev ?? item.bgm_std_dev ?? item.bgmStandardDeviation ?? item.bgm_standard_deviation),
     imageName: String(item.imageName ?? item.image ?? imageAsset?.fileName ?? ''),
     imageUrl: String(item.imageUrl ?? ''),
     imageAsset,
@@ -115,6 +127,10 @@ function normalizeThresholds(input = {}) {
     redDown: finite(input.redDown ?? input.red_down, DEFAULT_THRESHOLDS.redDown),
     blackUp: finite(input.blackUp ?? input.black_up, DEFAULT_THRESHOLDS.blackUp),
     blackDown: finite(input.blackDown ?? input.black_down, DEFAULT_THRESHOLDS.blackDown),
+    controversyHighUp: finite(input.controversyHighUp ?? input.controversy_high_up, DEFAULT_THRESHOLDS.controversyHighUp),
+    controversyHighDown: finite(input.controversyHighDown ?? input.controversy_high_down, DEFAULT_THRESHOLDS.controversyHighDown),
+    controversyLowUp: finite(input.controversyLowUp ?? input.controversy_low_up, DEFAULT_THRESHOLDS.controversyLowUp),
+    controversyLowDown: finite(input.controversyLowDown ?? input.controversy_low_down, DEFAULT_THRESHOLDS.controversyLowDown),
   };
 }
 
@@ -152,16 +168,26 @@ function normalizeStyle(input = {}) {
 }
 
 export function normalizePosterProject(input = {}) {
-  const mode = input.mode === 'black' ? 'black' : 'red';
+  const requestedMode = String(input.mode ?? '').trim();
+  const mode = requestedMode === 'black' || requestedMode === 'controversy' ? requestedMode : 'red';
+  const defaultTitle = mode === 'black'
+    ? '7月新番中期黑榜 BOTTOM 10'
+    : mode === 'controversy'
+      ? '7月新番中期争议度'
+      : POSTER_DEFAULTS.title;
+  const defaultSubtitle = mode === 'controversy'
+    ? 'MOST CONTROVERSIAL / MOST CONSISTENT'
+    : POSTER_DEFAULTS.subtitle;
+  const maxItems = mode === 'controversy' ? 100 : 10;
   return {
     version: 1,
     mode,
-    title: String(input.title ?? (mode === 'black' ? '7月新番中期黑榜 BOTTOM 10' : POSTER_DEFAULTS.title)),
-    subtitle: String(input.subtitle ?? POSTER_DEFAULTS.subtitle),
+    title: String(input.title ?? defaultTitle),
+    subtitle: String(input.subtitle ?? defaultSubtitle),
     comparisonLabel: String(input.comparisonLabel ?? input.comparison_label ?? POSTER_DEFAULTS.comparisonLabel),
     thresholds: normalizeThresholds(input.thresholds),
     style: normalizeStyle(input.style ?? input),
-    items: (Array.isArray(input.items) ? input.items : []).map(normalizeItem).slice(0, 10),
+    items: (Array.isArray(input.items) ? input.items : []).map(normalizeItem).slice(0, maxItems),
   };
 }
 
@@ -174,8 +200,36 @@ export function sortPosterItems(items, mode = 'red') {
   if (mode === 'black') {
     return copy.sort((a, b) => finite(a.score) - finite(b.score) || finite(b.voters) - finite(a.voters));
   }
-  if (mode !== 'red') throw new Error("mode must be 'red' or 'black'");
-  return copy.sort((a, b) => finite(b.score) - finite(a.score) || finite(b.voters) - finite(a.voters));
+  if (mode === 'red') {
+    return copy.sort((a, b) => finite(b.score) - finite(a.score) || finite(b.voters) - finite(a.voters));
+  }
+  if (mode === 'controversy') {
+    return copy.sort((a, b) => finite(b.stdDev) - finite(a.stdDev) || finite(b.voters) - finite(a.voters));
+  }
+  throw new Error("mode must be 'red', 'black' or 'controversy'");
+}
+
+export function posterDisplayRows(items, mode = 'red') {
+  if (mode !== 'controversy') {
+    return sortPosterItems(items, mode).slice(0, 10).map((item, index) => ({
+      item,
+      section: mode,
+      displayRank: index + 1,
+    }));
+  }
+
+  const sortedHigh = sortPosterItems(items, 'controversy');
+  const high = sortedHigh.slice(0, 5);
+  const highIds = new Set(high.map((item) => item.id));
+  const low = [...items]
+    .filter((item) => !highIds.has(item.id))
+    .sort((a, b) => finite(a.stdDev) - finite(b.stdDev) || finite(b.voters) - finite(a.voters))
+    .slice(0, 5);
+
+  return [
+    ...high.map((item, index) => ({item, section: 'controversial', displayRank: index + 1})),
+    ...low.map((item, index) => ({item, section: 'consistent', displayRank: index + 1})),
+  ];
 }
 
 export function trendState(score, bgmScore, mode = 'red', thresholds = {}) {
@@ -192,7 +246,24 @@ export function trendState(score, bgmScore, mode = 'red', thresholds = {}) {
     if (delta <= t.blackDown) return 'down';
     return 'flat';
   }
-  throw new Error("mode must be 'red' or 'black'");
+  throw new Error("trendState supports only 'red' and 'black'");
+}
+
+export function controversyTrendState(stdDev, bgmStdDev, section, thresholds = {}) {
+  if (bgmStdDev === null || bgmStdDev === undefined || bgmStdDev === '') return 'flat';
+  const t = normalizeThresholds(thresholds);
+  const delta = finite(stdDev) - finite(bgmStdDev);
+  if (section === 'controversial') {
+    if (delta >= t.controversyHighUp) return 'up';
+    if (delta < t.controversyHighDown) return 'down';
+    return 'flat';
+  }
+  if (section === 'consistent') {
+    if (delta > t.controversyLowUp) return 'up';
+    if (delta <= t.controversyLowDown) return 'down';
+    return 'flat';
+  }
+  throw new Error("section must be 'controversial' or 'consistent'");
 }
 
 export function cropTransform(imageWidth, imageHeight, viewportWidth, viewportHeight, crop = {}) {
