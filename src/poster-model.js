@@ -74,7 +74,23 @@ function normalizeProviderIds(input = {}) {
   return Number.isInteger(tmdb) && tmdb > 0 ? {tmdb} : {};
 }
 
+function normalizeImageAsset(input) {
+  if (!input || typeof input !== 'object') return null;
+  const assetId = String(input.assetId ?? input.asset_id ?? '').trim();
+  const scope = String(input.scope ?? '').trim();
+  if (!assetId || !scope) return null;
+  return {
+    assetId,
+    scope,
+    fileName: String(input.fileName ?? input.filename ?? '').trim(),
+    source: input.source === 'tmdb' ? 'tmdb' : 'local',
+    contentType: String(input.contentType ?? input.content_type ?? '').trim(),
+    relativePath: String(input.relativePath ?? input.relative_path ?? '').trim(),
+  };
+}
+
 function normalizeItem(item = {}) {
+  const imageAsset = normalizeImageAsset(item.imageAsset ?? item.image_asset);
   return {
     id: String(item.id || nextId()),
     title: String(item.title ?? '').trim(),
@@ -84,8 +100,9 @@ function normalizeItem(item = {}) {
     score: finite(item.score, 0),
     voters: Math.max(0, Math.round(finite(item.voters, 0))),
     bgmScore: item.bgmScore ?? item.bgm_score ?? null,
-    imageName: String(item.imageName ?? item.image ?? ''),
+    imageName: String(item.imageName ?? item.image ?? imageAsset?.fileName ?? ''),
     imageUrl: String(item.imageUrl ?? ''),
+    imageAsset,
     crop: normalizeCrop(item.crop, item.focus),
     brightness: clamp(finite(item.brightness, 0.78), 0.1, 1.5),
     providerIds: normalizeProviderIds(item.providerIds ?? item.provider_ids),
