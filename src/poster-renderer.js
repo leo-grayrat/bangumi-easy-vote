@@ -1,4 +1,9 @@
-import {cropTransform, sortPosterItems, trendState} from './poster-model.js';
+import {
+  controversyTrendState,
+  cropTransform,
+  posterDisplayRows,
+  trendState,
+} from './poster-model.js';
 
 export const POSTER_LAYOUT = Object.freeze({
   width: 1200,
@@ -203,6 +208,20 @@ function drawAnimeTitle(ctx, item, x, y, style) {
   });
 }
 
+function drawSectionBadge(ctx, section, x, y, project) {
+  if (section !== 'controversial' && section !== 'consistent') return;
+  const text = section === 'controversial' ? 'MOST CONTROVERSIAL' : 'MOST CONSISTENT';
+  ctx.save();
+  ctx.font = fontString(900, 13, project.style.fontFamilies.label);
+  const width = Math.ceil(ctx.measureText(text).width) + 22;
+  ctx.fillStyle = 'rgba(0,0,0,.72)';
+  ctx.fillRect(x + 12, y + 10, width, 24);
+  centerText(ctx, text, x + 12, y + 10, x + 12 + width, y + 34, {
+    font: fontString(900, 13, project.style.fontFamilies.label),
+  });
+  ctx.restore();
+}
+
 function drawContainedImage(ctx, image, x1, y1, x2, y2) {
   if (!image) return;
   const iw = image.naturalWidth || image.width;
@@ -233,7 +252,8 @@ function drawDelta(ctx, delta, x1, y1, x2, y2, project) {
   });
 }
 
-function drawRow(ctx, project, item, rankIndex, resources) {
+function drawRow(ctx, project, rowInfo, rankIndex, resources) {
+  const {item, section, displayRank} = rowInfo;
   const y = POSTER_LAYOUT.rowY[rankIndex];
   const bottom = y + POSTER_LAYOUT.rowHeight;
   const footY = bottom - POSTER_LAYOUT.statsFootHeight;
@@ -241,39 +261,67 @@ function drawRow(ctx, project, item, rankIndex, resources) {
   const visualX = rankX2;
   const statsX = POSTER_LAYOUT.statsX;
   const split = statsX + POSTER_LAYOUT.statsSplit;
+  const topRank = displayRank <= 3;
 
-  ctx.fillStyle = rankIndex < 3 ? COLORS.rankTop : COLORS.rankNormal;
+  ctx.fillStyle = topRank ? COLORS.rankTop : COLORS.rankNormal;
   ctx.fillRect(POSTER_LAYOUT.left, y, POSTER_LAYOUT.rankWidth, POSTER_LAYOUT.rowHeight);
   ctx.fillStyle = COLORS.stats;
   ctx.fillRect(statsX, y, POSTER_LAYOUT.statsWidth, POSTER_LAYOUT.rowHeight);
 
   const image = resources.images?.get?.(item.id) || resources.images?.[item.id] || null;
   drawVisual(ctx, item, image, visualX, y);
+  if (project.mode === 'controversy' && (rankIndex === 0 || rankIndex === 5)) {
+    drawSectionBadge(ctx, section, visualX, y, project);
+  }
 
-  centerText(ctx, String(rankIndex + 1), POSTER_LAYOUT.left, y - 8, rankX2, bottom - 8, {
+  centerText(ctx, String(displayRank), POSTER_LAYOUT.left, y - 8, rankX2, bottom - 8, {
     font: fontString(900, project.style.fontSizes.rank, project.style.fontFamilies.rank),
-    fill: rankIndex < 3 ? COLORS.white : COLORS.black,
+    fill: topRank ? COLORS.white : COLORS.black,
   });
   drawAnimeTitle(ctx, item, visualX, y, project.style);
 
-  centerText(ctx, Number(item.score).toFixed(2), statsX, y, split, footY, {
+  const controversy = project.mode === 'controversy';
+  const metric = controversy ? Number(item.stdDev) : Number(item.score);
+  centerText(ctx, Number.isFinite(metric) ? metric.toFixed(2) : '--', statsX, y, split, footY, {
     font: fontString(900, project.style.fontSizes.metric, project.style.fontFamilies.metric),
   });
 
-  const state = trendState(item.score, item.bgmScore, project.mode, project.thresholds);
-  const delta = Number(item.score) - Number(item.bgmScore ?? item.score);
+  const comparisonValue = controversy ? item.bgmStdDev : item.bgmScore;
+  const hasComparison = comparisonValue !== null && comparisonValue !== undefined && comparisonValue !== '';
+  const state = controversy
+    ? controversyTrendState(item.stdDev, item.bgmStdDev, section, project.thresholds)
+    : trendState(item.score, item.bgmScore, project.mode, project.thresholds);
+  const delta = controversy
+    ? Number(item.stdDev) - Number(item.bgmStdDev ?? item.stdDev)
+    : Number(item.score) - Number(item.bgmScore ?? item.score);
   drawContainedImage(ctx, resources.trendIcons?.[state], split + 6, y + 27, split + 78, y + 91);
-  drawDelta(ctx, delta, split + 79, y, POSTER_LAYOUT.right - 4, footY, project);
+  if (hasComparison) {
+    drawDelta(ctx, delta, split + 79, y, POSTER_LAYOUT.right - 4, footY, project);
+  } else {
+    centerText(ctx, '--', split + 79, y, POSTER_LAYOUT.right - 4, footY, {
+      font: fontString(900, project.style.fontSizes.trendDelta, project.style.fontFamilies.trendDelta),
+    });
+  }
 
   const strip = state === 'up' ? COLORS.trendUp : state === 'down' ? COLORS.trendDown : COLORS.trendFlat;
   ctx.fillStyle = strip;
   ctx.fillRect(statsX, footY, POSTER_LAYOUT.statsWidth, POSTER_LAYOUT.statsFootHeight);
   const stripText = state === 'down' ? COLORS.white : COLORS.black;
-  centerText(ctx, `投票数 ${item.voters}`, statsX, footY, split, bottom, {
+  const leftFoot = controversy
+    ? `AVG ${Number(item.score).toFixed(2)} · N${item.voters}`
+    : `投票数 ${item.voters}`;
+  const rightFoot = controversy
+    ? item.bgmStdDev === null || item.bgmStdDev === undefined
+      ? 'BGM SD --'
+      : `BGM SD ${Number(item.bgmStdDev).toFixed(2)}`
+    : item.bgmScore === null || item.bgmScore === undefined
+      ? 'BGM --'
+      : `BGM ${Number(item.bgmScore).toFixed(2)}`;
+  centerText(ctx, leftFoot, statsX, footY, split, bottom, {
     font: fontString(800, project.style.fontSizes.aux, project.style.fontFamilies.aux),
     fill: stripText,
   });
-  centerText(ctx, item.bgmScore === null || item.bgmScore === undefined ? 'BGM --' : `BGM ${Number(item.bgmScore).toFixed(2)}`, split, footY, POSTER_LAYOUT.right, bottom, {
+  centerText(ctx, rightFoot, split, footY, POSTER_LAYOUT.right, bottom, {
     font: fontString(800, project.style.fontSizes.aux, project.style.fontFamilies.aux),
     fill: stripText,
   });
@@ -288,7 +336,7 @@ function drawStatsHeaders(ctx, project) {
   ctx.fillRect(x, y, POSTER_LAYOUT.statsSplit, h);
   ctx.fillStyle = COLORS.white;
   ctx.fillRect(split, y, POSTER_LAYOUT.statsWidth - POSTER_LAYOUT.statsSplit, h);
-  centerText(ctx, 'AVERAGE SCORE', x, y, split, y + h, {
+  centerText(ctx, project.mode === 'controversy' ? 'STD. DEV.' : 'AVERAGE SCORE', x, y, split, y + h, {
     font: fontString(800, project.style.fontSizes.label, project.style.fontFamilies.label),
   });
   centerText(ctx, project.comparisonLabel, split, y, POSTER_LAYOUT.right, y + h, {
@@ -304,7 +352,7 @@ export function renderPoster(canvas, rawProject, resources = {}) {
   if (canvas.height !== POSTER_LAYOUT.height) canvas.height = POSTER_LAYOUT.height;
   ctx.clearRect(0, 0, POSTER_LAYOUT.width, POSTER_LAYOUT.height);
   drawHeader(ctx, rawProject);
-  const items = sortPosterItems(rawProject.items || [], rawProject.mode).slice(0, 10);
-  items.forEach((item, index) => drawRow(ctx, rawProject, item, index, resources));
+  const rows = posterDisplayRows(rawProject.items || [], rawProject.mode).slice(0, 10);
+  rows.forEach((row, index) => drawRow(ctx, rawProject, row, index, resources));
   drawStatsHeaders(ctx, rawProject);
 }
