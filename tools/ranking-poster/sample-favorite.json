@@ -1,0 +1,72 @@
+{
+  "mode": "favorite",
+  "title": "7月新番中期喜爱度 TOP 10",
+  "subtitle": "FAVORITE TOP 10 ANIME",
+  "comparisonLabel": "VS SCORE RANK",
+  "thresholds": {
+    "favoriteUp": 5,
+    "favoriteDown": 0
+  },
+  "items": [
+    {
+      "title": "再见 拉拉",
+      "favoritePoints": 28,
+      "top5Count": 7,
+      "scoreRank": 15
+    },
+    {
+      "title": "感谢对战",
+      "favoritePoints": 17,
+      "top5Count": 4,
+      "scoreRank": 13
+    },
+    {
+      "title": "穹庐下的魔女",
+      "favoritePoints": 16,
+      "top5Count": 4,
+      "scoreRank": 2
+    },
+    {
+      "title": "画完这个再去死",
+      "favoritePoints": 15,
+      "top5Count": 4,
+      "scoreRank": 14
+    },
+    {
+      "title": "无职转生 第3期",
+      "favoritePoints": 12,
+      "top5Count": 3,
+      "scoreRank": 8
+    },
+    {
+      "title": "死神 千年血战篇 Part.4 祸进谭",
+      "favoritePoints": 10,
+      "top5Count": 3,
+      "scoreRank": 1
+    },
+    {
+      "title": "超超超超喜欢你的100个女孩子 第3期",
+      "favoritePoints": 10,
+      "top5Count": 2,
+      "scoreRank": 4
+    },
+    {
+      "title": "黄泉的使者",
+      "favoritePoints": 9,
+      "top5Count": 3,
+      "scoreRank": 3
+    },
+    {
+      "title": "炒翻天",
+      "favoritePoints": 7,
+      "top5Count": 2,
+      "scoreRank": 6
+    },
+    {
+      "title": "碧蓝之海 第3期",
+      "favoritePoints": 6,
+      "top5Count": 3,
+      "scoreRank": 12
+    }
+  ]
+}

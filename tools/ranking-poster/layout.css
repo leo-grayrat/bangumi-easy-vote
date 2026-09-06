@@ -1,0 +1,236 @@
+:root {
+  --poster-w: 1200px;
+  --poster-h: 1800px;
+  --header-h: 146px;
+  --brand-w: 344px;
+  --list-left: 22px;
+  --rank-w: 110px;
+  --visual-w: 699px;
+  --stats-w: 345px;
+  --row-h: 136px;
+  --footer-top: 1650px;
+  --stats-head-y: 146px;
+  --stats-head-h: 22px;
+  --stats-score-w: 158px;
+  --stats-compare-w: 187px;
+  --delta-sign-w: 24px;
+  --stats-aux-h: 22px;
+  --header-line-gap: 18px;
+
+  --row-1-y: 168px;
+  --row-2-y: 317px;
+  --row-3-y: 467px;
+  --row-4-y: 616px;
+  --row-5-y: 766px;
+  --row-6-y: 915px;
+  --row-7-y: 1065px;
+  --row-8-y: 1214px;
+  --row-9-y: 1364px;
+  --row-10-y: 1514px;
+
+  --c-header: #000000;
+  --c-stat: #1e1e1e;
+  --c-rank-top: #ff686f;
+  --c-rank-normal: #ef9448;
+  --c-label-red: #dd0000;
+  --c-trend-up: #36c120;
+  --c-trend-flat: #ffb018;
+  --c-trend-down: #dd0000;
+
+  --font-header-title: "Noto Sans CJK SC", "Noto Sans", Arial, sans-serif;
+  --font-header-subtitle: "Noto Sans", "Noto Sans CJK SC", Arial, sans-serif;
+  --font-anime: "Noto Sans CJK SC", "Noto Sans", Arial, sans-serif;
+  --font-metric: "Noto Sans", "Noto Sans CJK SC", Arial, sans-serif;
+  --font-small: "Noto Sans CJK SC", "Noto Sans", Arial, sans-serif;
+}
+
+.ranking-poster {
+  position: relative;
+  width: var(--poster-w);
+  height: var(--poster-h);
+  overflow: hidden;
+  background: transparent;
+  font-family: var(--font-anime);
+}
+
+.ranking-poster__header {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: var(--header-h);
+  background: var(--c-header);
+}
+
+.ranking-poster__brand {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: var(--brand-w);
+  height: var(--header-h);
+  background: var(--c-rank-top);
+}
+
+/* The renderer measures both title lines as one block, applies the explicit
+   line gap, then vertically centers that block inside the 146 px header. */
+
+.ranking-row {
+  position: absolute;
+  left: var(--list-left);
+  display: grid;
+  grid-template-columns: var(--rank-w) var(--visual-w) var(--stats-w);
+  width: calc(var(--rank-w) + var(--visual-w) + var(--stats-w));
+  height: var(--row-h);
+  filter: drop-shadow(3px 4px 0 rgba(48, 70, 72, .45));
+}
+
+.ranking-row:nth-child(1)  { top: var(--row-1-y); }
+.ranking-row:nth-child(2)  { top: var(--row-2-y); }
+.ranking-row:nth-child(3)  { top: var(--row-3-y); }
+.ranking-row:nth-child(4)  { top: var(--row-4-y); }
+.ranking-row:nth-child(5)  { top: var(--row-5-y); }
+.ranking-row:nth-child(6)  { top: var(--row-6-y); }
+.ranking-row:nth-child(7)  { top: var(--row-7-y); }
+.ranking-row:nth-child(8)  { top: var(--row-8-y); }
+.ranking-row:nth-child(9)  { top: var(--row-9-y); }
+.ranking-row:nth-child(10) { top: var(--row-10-y); }
+
+.ranking-row__rank {
+  display: grid;
+  place-items: center;
+  background: var(--c-rank-normal);
+  color: #000;
+  font-family: var(--font-metric);
+  font-size: 74px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.ranking-row:nth-child(-n+3) .ranking-row__rank {
+  background: var(--c-rank-top);
+  color: #fff;
+}
+
+.ranking-row__visual {
+  position: relative;
+  overflow: hidden;
+  background: #444;
+}
+
+.ranking-row__visual > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ranking-row__visual::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to top, rgba(0,0,0,.42), rgba(0,0,0,.05) 70%),
+    linear-gradient(to right, rgba(0,0,0,.34), rgba(0,0,0,.06));
+  pointer-events: none;
+}
+
+.ranking-row__title {
+  position: absolute;
+  z-index: 1;
+  left: 20px;
+  right: 24px;
+  bottom: 16px;
+  color: #fff;
+  font-family: var(--font-anime);
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1.05;
+  text-shadow: 0 1px 2px rgba(0,0,0,.9);
+}
+
+.ranking-row__stats {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--stats-score-w) var(--stats-compare-w);
+  grid-template-rows: 1fr var(--stats-aux-h);
+  background: var(--c-stat);
+  color: #fff;
+  font-family: var(--font-metric);
+}
+
+.ranking-row__score {
+  display: grid;
+  place-items: center;
+  font-size: 46px;
+  font-weight: 900;
+}
+
+.ranking-row__comparison {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  align-items: center;
+  padding: 0 6px;
+}
+
+.ranking-row__delta {
+  display: grid;
+  grid-template-columns: var(--delta-sign-w) auto;
+  justify-content: center;
+  align-items: center;
+  font-size: 34px;
+  font-weight: 900;
+  text-align: center;
+}
+
+/* Actual Pillow output pastes the extracted transparent reference PNG here;
+   this slot records its intended natural-scale footprint. */
+.ranking-row__trend-icon {
+  width: 66px;
+  height: 59px;
+  object-fit: contain;
+}
+
+.ranking-row__aux {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: var(--stats-score-w) var(--stats-compare-w);
+  align-items: center;
+  height: var(--stats-aux-h);
+  color: #000;
+  font-family: var(--font-small);
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.ranking-row__aux[data-trend="up"]   { background: var(--c-trend-up); }
+.ranking-row__aux[data-trend="flat"] { background: var(--c-trend-flat); }
+.ranking-row__aux[data-trend="down"] {
+  background: var(--c-trend-down);
+  color: #fff;
+}
+
+.ranking-poster__stats-head {
+  position: absolute;
+  z-index: 10;
+  left: calc(var(--list-left) + var(--rank-w) + var(--visual-w));
+  top: var(--stats-head-y);
+  display: grid;
+  grid-template-columns: var(--stats-score-w) var(--stats-compare-w);
+  width: var(--stats-w);
+  height: var(--stats-head-h);
+  font-family: var(--font-header-subtitle);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: var(--stats-head-h);
+  text-align: center;
+}
+
+.ranking-poster__stats-head > :first-child {
+  background: var(--c-label-red);
+  color: #fff;
+}
+
+.ranking-poster__stats-head > :last-child {
+  background: #fff;
+  color: #000;
+}
+
+/* The bottom 150 px remain transparent. Branding/footer copy is deliberately
+   left to later composition rather than rendered by this standalone tool. */

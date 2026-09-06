@@ -1,0 +1,95 @@
+{
+  "mode": "controversy",
+  "title": "7月新番中期争议度",
+  "subtitle": "MOST CONTROVERSIAL / MOST CONSISTENT",
+  "comparisonLabel": "VS BANGUMI",
+  "thresholds": {
+    "controversyHighUp": 0.70,
+    "controversyHighDown": 0.20,
+    "controversyLowUp": -0.30,
+    "controversyLowDown": -0.70
+  },
+  "items": [
+    {
+      "title": "二十世纪电气目录",
+      "score": 4.1429,
+      "voters": 7,
+      "stdDev": 2.642,
+      "bgmScore": 5.4682,
+      "bgmStdDev": 1.599
+    },
+    {
+      "title": "世界舞动",
+      "score": 4.80,
+      "voters": 5,
+      "stdDev": 2.135,
+      "bgmScore": 5.4706,
+      "bgmStdDev": 2.013
+    },
+    {
+      "title": "再见 拉拉",
+      "score": 7.00,
+      "voters": 10,
+      "stdDev": 2.000,
+      "bgmScore": 7.6033,
+      "bgmStdDev": 1.132
+    },
+    {
+      "title": "尼古喵喵",
+      "score": 6.7778,
+      "voters": 9,
+      "stdDev": 1.988,
+      "bgmScore": 7.2887,
+      "bgmStdDev": 1.320
+    },
+    {
+      "title": "BanG Dream! YUME∞MITA",
+      "score": 3.125,
+      "voters": 8,
+      "stdDev": 1.833,
+      "bgmScore": 5.5408,
+      "bgmStdDev": 1.854
+    },
+    {
+      "title": "Re:从零开始的异世界生活 第4期 Part.2 夺还篇",
+      "titleLines": ["Re:从零开始的异世界生活 第4期", "Part.2 夺还篇"],
+      "score": 7.80,
+      "voters": 5,
+      "stdDev": 0.400,
+      "bgmScore": 7.7866,
+      "bgmStdDev": 1.182
+    },
+    {
+      "title": "相反的你和我 第2期",
+      "score": 8.17,
+      "voters": 6,
+      "stdDev": 0.687,
+      "bgmScore": 7.7389,
+      "bgmStdDev": 1.139
+    },
+    {
+      "title": "花织同学转生后还是想干架",
+      "score": 8.00,
+      "voters": 4,
+      "stdDev": 0.707,
+      "bgmScore": 6.8484,
+      "bgmStdDev": 1.112
+    },
+    {
+      "title": "幼女战记 第2期",
+      "score": 7.75,
+      "voters": 4,
+      "stdDev": 0.829,
+      "bgmScore": 7.1764,
+      "bgmStdDev": 1.411
+    },
+    {
+      "title": "转学后班上的清纯可爱美少女 竟是小时候玩在一起的哥们",
+      "score": 4.25,
+      "voters": 4,
+      "stdDev": 0.829,
+      "bgmScore": 4.9799,
+      "bgmStdDev": 1.438
+    }
+  ]
+}
