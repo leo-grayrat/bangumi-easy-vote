@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { handlePosterRequest } from '../scripts/poster-api.mjs';
 
-test('poster api persists image bytes and project state across requests', async () => {
+test('poster api persists image bytes, per-mode project state and visual plans across requests', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'poster-api-'));
   const server = createServer(async (request, response) => {
     if (await handlePosterRequest({request, response, rootDirectory: root})) return;
@@ -29,14 +29,39 @@ test('poster api persists image bytes and project state across requests', async 
     assert.equal(restored.status, 200);
     assert.deepEqual([...new Uint8Array(await restored.arrayBuffer())], [1,2,3,4]);
 
-    const saved = await fetch(`http://127.0.0.1:${port}/api/poster/state?scope=project-demo`, {
+    const savedRed = await fetch(`http://127.0.0.1:${port}/api/poster/state?scope=project-demo&mode=red`, {
       method:'PUT',
       headers:{'content-type':'application/json'},
-      body:JSON.stringify({project:{title:'Saved',items:[{imageAsset:asset}]}}),
+      body:JSON.stringify({project:{mode:'red',title:'Saved red',items:[{imageAsset:asset}]}}),
     });
-    assert.equal(saved.status, 200);
-    const loaded = await fetch(`http://127.0.0.1:${port}/api/poster/state?scope=project-demo`);
-    assert.equal((await loaded.json()).project.title, 'Saved');
+    assert.equal(savedRed.status, 200);
+    const savedFavorite = await fetch(`http://127.0.0.1:${port}/api/poster/state?scope=project-demo&mode=favorite`, {
+      method:'PUT',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({project:{mode:'favorite',title:'Saved favorite',items:[]}}),
+    });
+    assert.equal(savedFavorite.status, 200);
+    const loadedRed = await fetch(`http://127.0.0.1:${port}/api/poster/state?scope=project-demo&mode=red`);
+    const loadedFavorite = await fetch(`http://127.0.0.1:${port}/api/poster/state?scope=project-demo&mode=favorite`);
+    assert.equal((await loadedRed.json()).project.title, 'Saved red');
+    assert.equal((await loadedFavorite.json()).project.title, 'Saved favorite');
+
+    const visuals = [{
+      visualId:'visual-1',
+      animeTitle:'再见 拉拉',
+      label:'第 5 集剧照',
+      asset,
+      crop:{zoom:1.2,offsetX:0.1,offsetY:-0.2},
+      brightness:0.78,
+    }];
+    const savedVisuals = await fetch(`http://127.0.0.1:${port}/api/poster/visuals?scope=project-demo`, {
+      method:'PUT',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({visuals}),
+    });
+    assert.equal(savedVisuals.status, 200);
+    const loadedVisuals = await fetch(`http://127.0.0.1:${port}/api/poster/visuals?scope=project-demo`);
+    assert.deepEqual((await loadedVisuals.json()).visuals, visuals);
   } finally {
     await new Promise((resolve)=>server.close(resolve));
   }
