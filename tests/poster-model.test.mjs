@@ -5,7 +5,9 @@ import {
   controversyTrendState,
   createPosterProject,
   normalizePosterProject,
+  normalizePosterVisual,
   posterDisplayRows,
+  posterVisualMatchesItem,
   sortPosterItems,
   trendState,
   serializePosterProject,
@@ -65,6 +67,7 @@ test('project normalization supplies stable crop, style, provider and cached ima
     voters:3,
     bgm_score:7.2,
     providerIds:{tmdb:123},
+    visual_id:'visual-123',
     imageAsset:{
       assetId:'cached.png',
       scope:'project-demo',
@@ -77,10 +80,45 @@ test('project normalization supplies stable crop, style, provider and cached ima
   assert.equal(project.mode, 'red');
   assert.deepEqual(project.items[0].crop, {zoom:1, offsetX:0, offsetY:0});
   assert.deepEqual(project.items[0].providerIds, {tmdb:123});
+  assert.equal(project.items[0].visualId, 'visual-123');
   assert.equal(project.items[0].imageAsset.assetId, 'cached.png');
   assert.equal(project.items[0].imageName, '原图.png');
   assert.equal(project.style.headerLineGap, POSTER_DEFAULTS.style.headerLineGap);
   assert.equal(project.style.deltaMinusYOffset, POSTER_DEFAULTS.style.deltaMinusYOffset);
+});
+
+test('poster visuals normalize image, crop, readable label and anime identity', () => {
+  const visual = normalizePosterVisual({
+    visual_id:'visual-1',
+    anime_title:'再见   拉拉',
+    provider_ids:{tmdb:456},
+    label:'第 5 集剧照',
+    asset:{assetId:'cached.jpg',scope:'project-demo',fileName:'tmdb-s1e5.jpg',source:'tmdb'},
+    crop:{zoom:1.5,offsetX:-0.2,offsetY:0.3},
+    brightness:0.9,
+  });
+  assert.equal(visual.visualId, 'visual-1');
+  assert.equal(visual.animeTitle, '再见   拉拉');
+  assert.deepEqual(visual.providerIds, {tmdb:456});
+  assert.equal(visual.label, '第 5 集剧照');
+  assert.equal(visual.asset.assetId, 'cached.jpg');
+  assert.deepEqual(visual.crop, {zoom:1.5,offsetX:-0.2,offsetY:0.3});
+  assert.equal(visual.brightness, 0.9);
+});
+
+test('visual matching prefers shared TMDB identity and otherwise falls back to normalized title', () => {
+  assert.equal(posterVisualMatchesItem(
+    {animeTitle:'Different title', providerIds:{tmdb:123}},
+    {title:'本地标题', providerIds:{tmdb:123}},
+  ), true);
+  assert.equal(posterVisualMatchesItem(
+    {animeTitle:'再见   拉拉', providerIds:{}},
+    {title:' 再见 拉拉 ', providerIds:{}},
+  ), true);
+  assert.equal(posterVisualMatchesItem(
+    {animeTitle:'作品 A', providerIds:{tmdb:1}},
+    {title:'作品 B', providerIds:{tmdb:2}},
+  ), false);
 });
 
 test('controversy normalization keeps SD fields and more than ten candidates for extreme selection', () => {
@@ -119,6 +157,7 @@ test('poster serialization strips binary/session urls but keeps provider ids and
     },
     items:[{
       title:'A', score:8, voters:3, bgmScore:7.2,
+      visualId:'visual-7',
       imageName:'a.jpg', imageUrl:'blob:image', providerIds:{tmdb:456},
       imageAsset:{assetId:'cached.jpg', scope:'project-demo', fileName:'a.jpg', source:'local', contentType:'image/jpeg', relativePath:'.local/poster-assets/project-demo/cached.jpg'},
     }],
@@ -126,6 +165,7 @@ test('poster serialization strips binary/session urls but keeps provider ids and
   const parsed = JSON.parse(serializePosterProject(project));
   assert.equal(parsed.items[0].imageUrl, undefined);
   assert.equal(parsed.items[0].imageName, 'a.jpg');
+  assert.equal(parsed.items[0].visualId, 'visual-7');
   assert.deepEqual(parsed.items[0].providerIds, {tmdb:456});
   assert.equal(parsed.items[0].imageAsset.assetId, 'cached.jpg');
   assert.equal(parsed.items[0].imageAsset.relativePath, '.local/poster-assets/project-demo/cached.jpg');
