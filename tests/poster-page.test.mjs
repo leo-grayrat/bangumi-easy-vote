@@ -46,3 +46,22 @@ test('poster editor persists image files through the local server while keeping 
   assert.match(editor, /\.toBlob\(/);
   assert.doesNotMatch(editor, /\.xlsx|Excel|spreadsheet/i);
 });
+
+test('desktop poster preview sticks as the grid item while narrow layouts return it to document flow', async () => {
+  const css = await source('poster.css');
+  assert.match(css, /\.poster-preview-column\s*\{[\s\S]*?position:\s*sticky;[\s\S]*?top:\s*16px;/);
+  assert.doesNotMatch(css, /\.poster-preview-panel\s*\{\s*position:\s*sticky;/);
+  assert.match(css, /@media \(max-width:\s*980px\)[\s\S]*?\.poster-preview-column\s*\{[\s\S]*?position:\s*static;/);
+});
+
+test('poster page exposes a reusable visual-plan picker', async () => {
+  const [poster, editor] = await Promise.all([
+    source('poster.html'),
+    source('src/poster-editor.js'),
+  ]);
+  assert.match(poster, /id="poster-visual-dialog"/);
+  assert.match(poster, /id="poster-visual-grid"/);
+  assert.match(editor, /已有视觉方案/);
+  assert.match(editor, /loadPosterVisuals\(/);
+  assert.match(editor, /savePosterVisuals\(/);
+});
