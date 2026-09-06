@@ -65,3 +65,15 @@ test('poster page exposes a reusable visual-plan picker', async () => {
   assert.match(editor, /loadPosterVisuals\(/);
   assert.match(editor, /savePosterVisuals\(/);
 });
+
+test('ranking toolbar switches to saved mode slots instead of resetting them on every click', async () => {
+  const [poster, editor] = await Promise.all([
+    source('poster.html'),
+    source('src/poster-editor.js'),
+  ]);
+  assert.match(poster, />切换红榜<\/button>/);
+  assert.match(poster, />切换喜爱榜<\/button>/);
+  assert.match(editor, /loadRed\.addEventListener\('click', \(\) => switchMode\('red'\)/);
+  assert.match(editor, /loadFavorite\.addEventListener\('click', \(\) => switchMode\('favorite'\)/);
+  assert.match(editor, /loadPosterWorkspace\(posterScope, targetMode\)/);
+});
