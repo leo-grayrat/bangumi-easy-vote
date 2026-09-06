@@ -108,6 +108,10 @@ function normalizeImageAsset(input) {
   };
 }
 
+function normalizeAnimeTitle(value) {
+  return String(value ?? '').trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+}
+
 function normalizeItem(item = {}) {
   const imageAsset = normalizeImageAsset(item.imageAsset ?? item.image_asset);
   return {
@@ -124,6 +128,7 @@ function normalizeItem(item = {}) {
     favoritePoints: Math.max(0, finite(item.favoritePoints ?? item.favorite_points, 0)),
     top5Count: Math.max(0, Math.round(finite(item.top5Count ?? item.top5_count, 0))),
     scoreRank: nullablePositiveInteger(item.scoreRank ?? item.score_rank),
+    visualId: String(item.visualId ?? item.visual_id ?? '').trim(),
     imageName: String(item.imageName ?? item.image ?? imageAsset?.fileName ?? ''),
     imageUrl: String(item.imageUrl ?? ''),
     imageAsset,
@@ -131,6 +136,30 @@ function normalizeItem(item = {}) {
     brightness: clamp(finite(item.brightness, 0.78), 0.1, 1.5),
     providerIds: normalizeProviderIds(item.providerIds ?? item.provider_ids),
   };
+}
+
+export function normalizePosterVisual(input = {}) {
+  const asset = normalizeImageAsset(input.asset ?? input.imageAsset ?? input.image_asset);
+  return {
+    visualId: String(input.visualId ?? input.visual_id ?? nextId()).trim(),
+    animeTitle: String(input.animeTitle ?? input.anime_title ?? '').trim(),
+    providerIds: normalizeProviderIds(input.providerIds ?? input.provider_ids),
+    label: String(input.label ?? asset?.fileName ?? '视觉方案').trim() || '视觉方案',
+    asset,
+    crop: normalizeCrop(input.crop, input.focus),
+    brightness: clamp(finite(input.brightness, 0.78), 0.1, 1.5),
+  };
+}
+
+export function posterVisualMatchesItem(visual, item) {
+  const visualTmdb = Number(visual?.providerIds?.tmdb);
+  const itemTmdb = Number(item?.providerIds?.tmdb);
+  const hasVisualTmdb = Number.isInteger(visualTmdb) && visualTmdb > 0;
+  const hasItemTmdb = Number.isInteger(itemTmdb) && itemTmdb > 0;
+  if (hasVisualTmdb && hasItemTmdb) return visualTmdb === itemTmdb;
+  const visualTitle = normalizeAnimeTitle(visual?.animeTitle);
+  const itemTitle = normalizeAnimeTitle(item?.title);
+  return Boolean(visualTitle && itemTitle && visualTitle === itemTitle);
 }
 
 function normalizeThresholds(input = {}) {
