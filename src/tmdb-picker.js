@@ -258,20 +258,20 @@ export function createTmdbPicker({onUseImage, onMappingChange} = {}) {
       copy.append(element('strong', '', description.label));
       if (description.meta) copy.append(element('small', '', description.meta));
       item.append(image, copy);
-      item.addEventListener('click', () => useImage(asset, description.filename));
+      item.addEventListener('click', () => useImage(asset, description.filename, description.label));
       grid.append(item);
     });
     section.append(groupHeading, grid);
     assets.append(section);
   }
 
-  async function useImage(asset, filename) {
+  async function useImage(asset, filename, label) {
     if (!currentItem || busy) return;
     setBusy(true);
     setStatus('正在下载原图并导入海报…');
     try {
       const file = await fetchTmdbImageFile(asset.filePath, filename);
-      await onUseImage(currentItem, file);
+      await onUseImage(currentItem, file, {label, source:'tmdb'});
       setStatus('图片已导入。');
       dialog.close();
     } catch (error) {
