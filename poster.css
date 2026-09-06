@@ -21,6 +21,14 @@
   min-width: 0;
 }
 
+.poster-preview-panel {
+  display: grid;
+  height: calc(100vh - 32px);
+  max-height: calc(100vh - 32px);
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  box-sizing: border-box;
+}
+
 .poster-section-note {
   margin-top: 4px;
   color: #9f9b9b;
@@ -144,13 +152,19 @@
 }
 
 .poster-canvas-frame {
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   border-radius: 8px;
 }
 
 #poster-canvas {
   display: block;
-  width: 100%;
+  width: auto;
   height: auto;
+  max-width: 100%;
+  max-height: 100%;
   cursor: pointer;
 }
 
@@ -534,6 +548,23 @@
 
   .poster-preview-column {
     position: static;
+  }
+
+  .poster-preview-panel {
+    height: auto;
+    max-height: none;
+    display: block;
+  }
+
+  .poster-canvas-frame {
+    display: block;
+  }
+
+  #poster-canvas {
+    width: 100%;
+    height: auto;
+    max-width: none;
+    max-height: none;
   }
 }
 
