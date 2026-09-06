@@ -46,19 +46,35 @@ export async function cachePosterImage(file, scope, source = 'local', fetchImpl 
   return body.asset;
 }
 
-export async function loadPosterWorkspace(scope, fetchImpl = globalThis.fetch) {
-  const url = `/api/poster/state?scope=${encodeURIComponent(scope)}`;
+export async function loadPosterWorkspace(scope, mode, fetchImpl = globalThis.fetch) {
+  const url = `/api/poster/state?scope=${encodeURIComponent(scope)}&mode=${encodeURIComponent(mode)}`;
   const body = await responseJson(await fetchImpl(url, {cache: 'no-store'}));
   return body.project ?? null;
 }
 
-export async function savePosterWorkspace(scope, project, fetchImpl = globalThis.fetch) {
-  const url = `/api/poster/state?scope=${encodeURIComponent(scope)}`;
+export async function savePosterWorkspace(scope, mode, project, fetchImpl = globalThis.fetch) {
+  const url = `/api/poster/state?scope=${encodeURIComponent(scope)}&mode=${encodeURIComponent(mode)}`;
   return responseJson(await fetchImpl(url, {
     method: 'PUT',
     headers: {'content-type': 'application/json'},
     body: JSON.stringify({project}),
     keepalive: true,
+  }));
+}
+
+export async function loadPosterVisuals(scope, fetchImpl = globalThis.fetch) {
+  const url = `/api/poster/visuals?scope=${encodeURIComponent(scope)}`;
+  const body = await responseJson(await fetchImpl(url, {cache:'no-store'}));
+  return Array.isArray(body.visuals) ? body.visuals : [];
+}
+
+export async function savePosterVisuals(scope, visuals, fetchImpl = globalThis.fetch) {
+  const url = `/api/poster/visuals?scope=${encodeURIComponent(scope)}`;
+  return responseJson(await fetchImpl(url, {
+    method:'PUT',
+    headers:{'content-type':'application/json'},
+    body:JSON.stringify({visuals:Array.isArray(visuals) ? visuals : []}),
+    keepalive:true,
   }));
 }
 
