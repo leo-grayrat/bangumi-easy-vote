@@ -16,12 +16,9 @@
 }
 
 .poster-preview-column {
-  min-width: 0;
-}
-
-.poster-preview-panel {
   position: sticky;
   top: 16px;
+  min-width: 0;
 }
 
 .poster-section-note {
@@ -132,7 +129,8 @@
 }
 
 .poster-canvas-frame,
-.poster-crop-frame {
+.poster-crop-frame,
+.poster-visual-preview-frame {
   overflow: hidden;
   border: 1px solid #e8e3e3;
   background-color: #eee;
@@ -197,9 +195,11 @@
   border-top: 1px solid #e8e3e3;
 }
 
-.poster-crop-dialog {
+.poster-crop-dialog,
+.poster-visual-dialog {
   width: min(940px, calc(100% - 32px));
   max-width: none;
+  max-height: calc(100vh - 32px);
   padding: 0;
   border: 0;
   border-radius: 14px;
@@ -207,14 +207,82 @@
 }
 
 .poster-crop-dialog::backdrop,
+.poster-visual-dialog::backdrop,
 .poster-tmdb-dialog::backdrop {
   background: rgb(0 0 0 / 48%);
 }
 
-.poster-crop-card {
+.poster-crop-card,
+.poster-visual-card {
   padding: 20px;
   border-radius: 14px;
   background: #fff;
+}
+
+.poster-visual-card {
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+}
+
+.poster-visual-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.poster-visual-item {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #e8e3e3;
+  border-radius: 10px;
+  background: #fbfbfb;
+}
+
+.poster-visual-item--active {
+  border-color: #54b5df;
+  box-shadow: 0 0 0 2px rgb(84 181 223 / 12%);
+}
+
+.poster-visual-preview-frame {
+  border-radius: 7px;
+}
+
+.poster-visual-preview {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 699 / 136;
+}
+
+.poster-visual-meta {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.poster-visual-meta strong {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.poster-visual-meta small {
+  color: #9f9b9b;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.poster-visual-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.poster-visual-rename {
+  flex: 1 1 150px;
+  min-width: 0;
 }
 
 .poster-crop-frame {
@@ -464,7 +532,7 @@
     grid-template-columns: 1fr;
   }
 
-  .poster-preview-panel {
+  .poster-preview-column {
     position: static;
   }
 }
@@ -481,7 +549,8 @@
   }
 
   .poster-tmdb-search-results,
-  .poster-tmdb-image-grid {
+  .poster-tmdb-image-grid,
+  .poster-visual-grid {
     grid-template-columns: 1fr;
   }
 }
