@@ -54,6 +54,14 @@ test('desktop poster preview sticks as the grid item while narrow layouts return
   assert.match(css, /@media \(max-width:\s*980px\)[\s\S]*?\.poster-preview-column\s*\{[\s\S]*?position:\s*static;/);
 });
 
+test('desktop sticky preview fits the complete poster and controls inside the viewport', async () => {
+  const css = await source('poster.css');
+  assert.match(css, /\.poster-preview-panel\s*\{[\s\S]*?height:\s*calc\(100vh\s*-\s*32px\);[\s\S]*?grid-template-rows:\s*auto\s+minmax\(0,\s*1fr\)\s+auto\s+auto;/);
+  assert.match(css, /\.poster-canvas-frame\s*\{[\s\S]*?min-height:\s*0;[\s\S]*?display:\s*flex;[\s\S]*?justify-content:\s*center;/);
+  assert.match(css, /#poster-canvas\s*\{[\s\S]*?width:\s*auto;[\s\S]*?height:\s*auto;[\s\S]*?max-width:\s*100%;[\s\S]*?max-height:\s*100%;/);
+  assert.match(css, /@media \(max-width:\s*980px\)[\s\S]*?\.poster-preview-panel\s*\{[\s\S]*?height:\s*auto;[\s\S]*?display:\s*block;/);
+});
+
 test('poster page exposes a reusable visual-plan picker', async () => {
   const [poster, editor] = await Promise.all([
     source('poster.html'),
