@@ -1038,10 +1038,10 @@ function downloadPng() {
 }
 
 function bindControls() {
-  elements.loadRed.addEventListener('click', () => loadBuiltin('red').catch(() => {}));
-  elements.loadBlack.addEventListener('click', () => loadBuiltin('black').catch(() => {}));
-  elements.loadControversy.addEventListener('click', () => loadBuiltin('controversy').catch(() => {}));
-  elements.loadFavorite.addEventListener('click', () => loadBuiltin('favorite').catch(() => {}));
+  elements.loadRed.addEventListener('click', () => switchMode('red').catch(() => {}));
+  elements.loadBlack.addEventListener('click', () => switchMode('black').catch(() => {}));
+  elements.loadControversy.addEventListener('click', () => switchMode('controversy').catch(() => {}));
+  elements.loadFavorite.addEventListener('click', () => switchMode('favorite').catch(() => {}));
   elements.projectFile.addEventListener('change', async () => {
     const file = elements.projectFile.files?.[0];
     if (!file) return;
