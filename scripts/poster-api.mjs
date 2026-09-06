@@ -4,9 +4,11 @@ import { stat } from 'node:fs/promises';
 import {
   deletePosterAsset,
   loadPosterState,
+  loadPosterVisuals,
   resolvePosterAssetPath,
   savePosterAsset,
   savePosterState,
+  savePosterVisuals,
 } from './poster-asset-store.mjs';
 
 const MAX_ASSET_BYTES = 25 * 1024 * 1024;
@@ -145,7 +147,8 @@ export async function handlePosterRequest({ request, response, rootDirectory }) 
   if (url.pathname === '/api/poster/state' && request.method === 'GET') {
     try {
       const scope = url.searchParams.get('scope') ?? '';
-      const project = await loadPosterState(rootDirectory, scope);
+      const mode = url.searchParams.get('mode') ?? '';
+      const project = await loadPosterState(rootDirectory, scope, mode);
       sendJson(response, 200, { project });
     } catch (error) {
       sendJson(response, 400, { error: error.message });
@@ -156,9 +159,34 @@ export async function handlePosterRequest({ request, response, rootDirectory }) 
   if (url.pathname === '/api/poster/state' && request.method === 'PUT') {
     try {
       const scope = url.searchParams.get('scope') ?? '';
+      const mode = url.searchParams.get('mode') ?? '';
       const body = await readJson(request);
       if (!body?.project || typeof body.project !== 'object') throw new Error('缺少海报项目数据。');
-      const stored = await savePosterState(rootDirectory, scope, body.project);
+      const stored = await savePosterState(rootDirectory, scope, mode, body.project);
+      sendJson(response, 200, { stored });
+    } catch (error) {
+      sendJson(response, 400, { error: error.message });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/poster/visuals' && request.method === 'GET') {
+    try {
+      const scope = url.searchParams.get('scope') ?? '';
+      const visuals = await loadPosterVisuals(rootDirectory, scope);
+      sendJson(response, 200, { visuals });
+    } catch (error) {
+      sendJson(response, 400, { error: error.message });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/poster/visuals' && request.method === 'PUT') {
+    try {
+      const scope = url.searchParams.get('scope') ?? '';
+      const body = await readJson(request);
+      if (!Array.isArray(body?.visuals)) throw new Error('缺少视觉方案列表。');
+      const stored = await savePosterVisuals(rootDirectory, scope, body.visuals);
       sendJson(response, 200, { stored });
     } catch (error) {
       sendJson(response, 400, { error: error.message });
