@@ -2,9 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   cachePosterImage,
+  loadPosterVisuals,
   loadPosterWorkspace,
   posterAssetUrl,
   posterScopeForProjectId,
+  savePosterVisuals,
   savePosterWorkspace,
 } from '../src/poster-persistence.js';
 
@@ -28,16 +30,35 @@ test('cachePosterImage uploads the original binary and returns a persistent asse
   assert.equal(calls[0][1].headers['content-type'], 'image/png');
 });
 
-test('poster workspace state round-trips through the local server', async () => {
+test('poster workspace state is isolated by ranking mode', async () => {
   const calls = [];
   const fetchImpl = async (url, init = {}) => {
     calls.push([String(url), init]);
-    if (init.method === 'PUT') return new Response(JSON.stringify({stored:{relativePath:'.local/poster-projects/project-demo.json'}}), {status:200});
-    return new Response(JSON.stringify({project:{title:'Saved'}}), {status:200});
+    if (init.method === 'PUT') {
+      return new Response(JSON.stringify({stored:{relativePath:'.local/poster-projects/project-demo--red.json'}}), {status:200});
+    }
+    return new Response(JSON.stringify({project:{mode:'red',title:'Saved'}}), {status:200});
   };
-  await savePosterWorkspace('project-demo', {title:'Saved'}, fetchImpl);
-  assert.deepEqual(await loadPosterWorkspace('project-demo', fetchImpl), {title:'Saved'});
+  await savePosterWorkspace('project-demo', 'red', {mode:'red', title:'Saved'}, fetchImpl);
+  assert.deepEqual(await loadPosterWorkspace('project-demo', 'red', fetchImpl), {mode:'red', title:'Saved'});
+  assert.match(calls[0][0], /\/api\/poster\/state\?scope=project-demo&mode=red$/);
   assert.equal(calls[0][1].method, 'PUT');
   assert.equal(JSON.parse(calls[0][1].body).project.title, 'Saved');
+  assert.match(calls[1][0], /\/api\/poster\/state\?scope=project-demo&mode=red$/);
   assert.equal(posterAssetUrl({scope:'project-demo',assetId:'id.png'}), '/api/poster/assets/project-demo/id.png');
+});
+
+test('visual plans round-trip through the local visual index', async () => {
+  const calls = [];
+  const visuals = [{visualId:'visual-1', animeTitle:'再见 拉拉', label:'第 5 集剧照'}];
+  const fetchImpl = async (url, init = {}) => {
+    calls.push([String(url), init]);
+    if (init.method === 'PUT') return new Response(JSON.stringify({stored:{relativePath:'.local/poster-visuals/project-demo.json'}}), {status:200});
+    return new Response(JSON.stringify({visuals}), {status:200});
+  };
+  await savePosterVisuals('project-demo', visuals, fetchImpl);
+  assert.deepEqual(await loadPosterVisuals('project-demo', fetchImpl), visuals);
+  assert.equal(calls[0][0], '/api/poster/visuals?scope=project-demo');
+  assert.deepEqual(JSON.parse(calls[0][1].body), {visuals});
+  assert.equal(calls[1][0], '/api/poster/visuals?scope=project-demo');
 });
