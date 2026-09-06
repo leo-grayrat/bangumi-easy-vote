@@ -145,6 +145,20 @@
       </form>
     </dialog>
 
+    <dialog class="poster-visual-dialog" id="poster-visual-dialog">
+      <div class="poster-visual-card">
+        <div class="section-heading section-heading--actions">
+          <div>
+            <h2>已有视觉方案</h2>
+            <p class="poster-section-note" id="poster-visual-title"></p>
+          </div>
+          <button class="bgm-button bgm-button--secondary" id="poster-visual-close" type="button">关闭</button>
+        </div>
+        <p class="poster-section-note" id="poster-visual-empty" hidden>这部动画还没有保存过视觉方案。可以从 TMDB 或本地导入一张，新方案会自动加入这里。</p>
+        <div class="poster-visual-grid" id="poster-visual-grid"></div>
+      </div>
+    </dialog>
+
     <script type="module" src="src/poster-editor.js"></script>
   </body>
 </html>
