@@ -38,18 +38,17 @@ test('poster asset store rejects traversal in scope and asset ids', () => {
   assert.equal(resolvePosterAssetPath('C:/repo', 'safe', '../a.png'), null);
 });
 
-test('poster state paths are isolated by ranking mode', async () => {
+test('poster state paths are isolated across all six ranking modes', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'poster-state-'));
-  const redPath = resolvePosterStatePath(root, 'project-demo', 'red');
-  const favoritePath = resolvePosterStatePath(root, 'project-demo', 'favorite');
-  assert.notEqual(redPath, favoritePath);
-  assert.match(redPath, /project-demo--red\.json$/);
-  assert.match(favoritePath, /project-demo--favorite\.json$/);
+  const modes = ['red', 'black', 'controversy', 'favorite', 'midseason-change', 'bgm-deviation'];
+  const paths = modes.map((mode) => resolvePosterStatePath(root, 'project-demo', mode));
+  assert.equal(new Set(paths).size, modes.length);
+  modes.forEach((mode, index) => assert.match(paths[index], new RegExp(`project-demo--${mode}\\.json$`)));
 
-  await savePosterState(root, 'project-demo', 'red', {mode:'red', title:'Red'});
-  await savePosterState(root, 'project-demo', 'favorite', {mode:'favorite', title:'Favorite'});
-  assert.equal((await loadPosterState(root, 'project-demo', 'red')).title, 'Red');
-  assert.equal((await loadPosterState(root, 'project-demo', 'favorite')).title, 'Favorite');
+  for (const mode of modes) {
+    await savePosterState(root, 'project-demo', mode, {mode, title: mode});
+    assert.equal((await loadPosterState(root, 'project-demo', mode)).title, mode);
+  }
 });
 
 test('mode state loader falls back to a matching legacy single-state file', async () => {
