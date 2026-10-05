@@ -13,14 +13,19 @@ test('resolveRequestPath maps the root and public assets inside the repository',
   assert.equal(resolveRequestPath('/poster.html?project=demo', root), path.join(root, 'poster.html'));
   assert.equal(resolveRequestPath('/poster.css', root), path.join(root, 'poster.css'));
   assert.equal(resolveRequestPath('/src/app.js', root), path.join(root, 'src', 'app.js'));
-  assert.equal(
-    resolveRequestPath('/tools/ranking-poster/sample.json', root),
-    path.join(root, 'tools', 'ranking-poster', 'sample.json'),
-  );
-  assert.equal(
-    resolveRequestPath('/tools/ranking-poster/sample-black.json', root),
-    path.join(root, 'tools', 'ranking-poster', 'sample-black.json'),
-  );
+  for (const sample of [
+    'sample.json',
+    'sample-black.json',
+    'sample-controversy.json',
+    'sample-favorite.json',
+    'sample-midseason-change.json',
+    'sample-bgm-deviation.json',
+  ]) {
+    assert.equal(
+      resolveRequestPath(`/tools/ranking-poster/${sample}`, root),
+      path.join(root, 'tools', 'ranking-poster', sample),
+    );
+  }
   assert.equal(
     resolveRequestPath('/form-import-findings.md', root),
     path.join(root, 'form-import-findings.md'),
