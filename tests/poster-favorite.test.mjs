@@ -47,26 +47,26 @@ test('favorite rank difference keeps an explicit plus or minus sign beside the a
   assert.match(renderer, /function drawRankDifference[\s\S]*?const negative = delta < 0;[\s\S]*?const sign = negative \? '−' : '\+';[\s\S]*?Math\.abs\(Math\.round\(delta\)\)/);
 });
 
-test('current favorite sample is a Top10 with the agreed four-number inputs', async () => {
+test('current favorite sample is the agreed finale Top10', async () => {
   const sample = JSON.parse(await source('tools/ranking-poster/sample-favorite.json'));
   const project = normalizePosterProject(sample);
   const rows = posterDisplayRows(project.items, project.mode);
   assert.equal(rows.length, 10);
   assert.deepEqual(rows.map((row) => row.item.title), [
-    '再见 拉拉',
-    '感谢对战',
-    '穹庐下的魔女',
-    '画完这个再去死',
     '无职转生 第3期',
-    '死神 千年血战篇 Part.4 祸进谭',
-    '超超超超喜欢你的100个女孩子 第3期',
-    '黄泉的使者',
-    '炒翻天',
+    '尼古喵喵',
+    'Re:从零开始的异世界生活 第4期 Part.2 夺还篇',
+    '穹庐下的魔女',
+    '与你相恋到生命尽头',
+    '躲在超市后门抽烟的两人',
+    '再见 拉拉',
     '碧蓝之海 第3期',
+    '感谢对战 大小姐才不玩格斗游戏',
+    '相反的你和我 第2期',
   ]);
   assert.deepEqual(
     rows.slice(0, 5).map((row) => [row.item.favoritePoints, row.item.top5Count, row.item.scoreRank]),
-    [[28, 7, 15], [17, 4, 13], [16, 4, 2], [15, 4, 14], [12, 3, 8]],
+    [[82, 20, 5], [64, 19, 4], [55, 19, 13], [51, 14, 1], [43, 12, 3]],
   );
 });
 
