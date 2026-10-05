@@ -24,13 +24,12 @@ test('red and black sorting break score ties by more voters', () => {
   assert.deepEqual(sortPosterItems(items, 'black').map(x => x.title), ['C', 'B', 'A']);
 });
 
-test('red and black modes use different comparison baselines', () => {
-  assert.equal(trendState(8.8, 8.0, 'red'), 'flat');
-  assert.equal(trendState(8.8, 7.5, 'red'), 'up');
-  assert.equal(trendState(8.0, 8.0, 'red'), 'down');
-  assert.equal(trendState(4.8, 5.5, 'black'), 'flat');
-  assert.equal(trendState(4.0, 5.5, 'black'), 'down');
-  assert.equal(trendState(5.5, 5.5, 'black'), 'up');
+test('red and black modes share the project score-vs-Bangumi thresholds', () => {
+  for (const mode of ['red', 'black']) {
+    assert.equal(trendState(7.69, 7.0, mode), 'flat');
+    assert.equal(trendState(7.70, 7.0, mode), 'up');
+    assert.equal(trendState(6.99, 7.0, mode), 'down');
+  }
 });
 
 test('controversy mode selects highest five and lowest five standard deviations with separate ranks', () => {
@@ -51,13 +50,12 @@ test('controversy mode selects highest five and lowest five standard deviations 
   ]);
 });
 
-test('controversy mode uses different VS Bangumi thresholds for high and low sections', () => {
-  assert.equal(controversyTrendState(2.0, 1.2, 'controversial'), 'up');
-  assert.equal(controversyTrendState(1.7, 1.2, 'controversial'), 'flat');
-  assert.equal(controversyTrendState(1.3, 1.2, 'controversial'), 'down');
-  assert.equal(controversyTrendState(0.5, 1.0, 'consistent'), 'flat');
-  assert.equal(controversyTrendState(0.8, 1.0, 'consistent'), 'up');
-  assert.equal(controversyTrendState(0.2, 1.0, 'consistent'), 'down');
+test('controversy mode uses one VS Bangumi threshold pair for both sections', () => {
+  for (const section of ['controversial', 'consistent']) {
+    assert.equal(controversyTrendState(1.6, 1.0, section), 'up');
+    assert.equal(controversyTrendState(1.1, 1.0, section), 'flat');
+    assert.equal(controversyTrendState(0.4, 1.0, section), 'down');
+  }
 });
 
 test('project normalization supplies stable crop, style, provider and cached image defaults', () => {
