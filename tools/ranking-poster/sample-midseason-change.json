@@ -1,0 +1,28 @@
+{
+  "mode": "midseason-change",
+  "title": "7月新番中期→完结评价变化",
+  "subtitle": "MOST IMPROVED / MOST DECLINED",
+  "comparisonLabel": "VS MID-SEASON",
+  "thresholds": {
+    "scoreBgmDown": 0.0,
+    "scoreBgmUp": 0.7,
+    "controversyDown": -0.5,
+    "controversyUp": 0.5,
+    "favoriteDown": 0,
+    "favoriteUp": 5,
+    "midseasonDown": 0.0,
+    "midseasonUp": 0.0
+  },
+  "items": [
+    {"title": "BanG Dream! YUME∞MITA", "score": 5.0, "midseasonScore": 3.125, "midseasonVoters": 8},
+    {"title": "转学后班上的清纯可爱美少女 竟是小时候玩在一起的哥们", "score": 5.8333333333, "midseasonScore": 4.25, "midseasonVoters": 4},
+    {"title": "尼古喵喵", "score": 8.2413793103, "midseasonScore": 6.7777777778, "midseasonVoters": 9},
+    {"title": "擅长逃跑的殿下 第2期", "score": 7.2, "midseasonScore": 6.2, "midseasonVoters": 5},
+    {"title": "二十世纪电气目录", "score": 5.0, "midseasonScore": 4.1428571429, "midseasonVoters": 7},
+    {"title": "再见 拉拉", "score": 5.5555555556, "midseasonScore": 7.0, "midseasonVoters": 10},
+    {"title": "黄泉的使者（后半部分）", "score": 7.3846153846, "midseasonScore": 8.5714285714, "midseasonVoters": 7},
+    {"title": "超超超超喜欢你的100个女孩子 第3期", "score": 7.2142857143, "midseasonScore": 8.3333333333, "midseasonVoters": 6},
+    {"title": "幼女战记 第2期", "score": 6.9, "midseasonScore": 7.75, "midseasonVoters": 4},
+    {"title": "死神 千年血战篇 Part.4 祸进谭", "score": 8.4166666667, "midseasonScore": 9.0, "midseasonVoters": 4}
+  ]
+}
