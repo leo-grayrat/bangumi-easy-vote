@@ -25,12 +25,15 @@ import {
 
 const RECENT_PROJECT_KEY = 'bangumi-easy-vote:recent-project';
 const LAST_MODE_KEY_PREFIX = 'bangumi-easy-vote:poster-mode:';
-const POSTER_MODES = ['red', 'black', 'controversy', 'favorite'];
+const POSTER_MODES = ['red', 'black', 'controversy', 'favorite', 'midseason-change', 'bgm-deviation'];
+const DUAL_SECTION_MODES = new Set(['controversy', 'midseason-change', 'bgm-deviation']);
 const SAMPLE_PATHS = {
   red: 'tools/ranking-poster/sample.json',
   black: 'tools/ranking-poster/sample-black.json',
   controversy: 'tools/ranking-poster/sample-controversy.json',
   favorite: 'tools/ranking-poster/sample-favorite.json',
+  'midseason-change': 'tools/ranking-poster/sample-midseason-change.json',
+  'bgm-deviation': 'tools/ranking-poster/sample-bgm-deviation.json',
 };
 const STYLE_ROLES = [
   ['headerTitle', 'headerTitle', '主标题'],
@@ -42,6 +45,50 @@ const STYLE_ROLES = [
   ['trendDelta', 'trendDelta', '差值'],
   ['aux', 'aux', '底部小字'],
 ];
+const THRESHOLD_CONFIG = Object.freeze({
+  red: {
+    downKey: 'scoreBgmDown',
+    upKey: 'scoreBgmUp',
+    downLabel: '↓ BGM 差值阈值',
+    upLabel: '↑ BGM 差值阈值',
+    help: 'Δ = 社内均分 − BGM。低于 ↓ 阈值为下降箭头；达到 ↑ 阈值为上升箭头。',
+  },
+  black: {
+    downKey: 'scoreBgmDown',
+    upKey: 'scoreBgmUp',
+    downLabel: '↓ BGM 差值阈值',
+    upLabel: '↑ BGM 差值阈值',
+    help: 'Δ = 社内均分 − BGM。红榜、黑榜和 BGM 偏差榜共用这一组阈值。',
+  },
+  'bgm-deviation': {
+    downKey: 'scoreBgmDown',
+    upKey: 'scoreBgmUp',
+    downLabel: '↓ BGM 差值阈值',
+    upLabel: '↑ BGM 差值阈值',
+    help: 'Δ = 社内均分 − BGM。红榜、黑榜和 BGM 偏差榜共用这一组阈值。',
+  },
+  favorite: {
+    downKey: 'favoriteDown',
+    upKey: 'favoriteUp',
+    downLabel: '↓ 排名差阈值',
+    upLabel: '↑ 排名差阈值',
+    help: '排名差 = 社内评分排名 − 喜爱排名。',
+  },
+  controversy: {
+    downKey: 'controversyDown',
+    upKey: 'controversyUp',
+    downLabel: '↓ SD 差值阈值',
+    upLabel: '↑ SD 差值阈值',
+    help: 'ΔSD = 社内标准差 − BGM 标准差；上下两个分区使用同一组阈值。',
+  },
+  'midseason-change': {
+    downKey: 'midseasonDown',
+    upKey: 'midseasonUp',
+    downLabel: '↓ 中期变化阈值',
+    upLabel: '↑ 中期变化阈值',
+    help: 'Δ = 完结均分 − 中期均分。默认 0 / 0 时，正数 ↑、负数 ↓、不变 →。',
+  },
+});
 
 const elements = {
   canvas: document.querySelector('#poster-canvas'),
@@ -56,9 +103,11 @@ const elements = {
   entryList: document.querySelector('#poster-entry-list'),
   headerLineGap: document.querySelector('#header-line-gap'),
   loadBlack: document.querySelector('#load-black-sample'),
+  loadBgmDeviation: document.querySelector('#load-bgm-deviation-sample'),
   loadControversy: document.querySelector('#load-controversy-sample'),
   loadFavorite: document.querySelector('#load-favorite-sample'),
   loadError: document.querySelector('#load-error'),
+  loadMidseasonChange: document.querySelector('#load-midseason-change-sample'),
   loadRed: document.querySelector('#load-red-sample'),
   minusYOffset: document.querySelector('#minus-y-offset'),
   mode: document.querySelector('#poster-mode'),
@@ -70,6 +119,11 @@ const elements = {
   sourceProjectName: document.querySelector('#source-project-name'),
   styleList: document.querySelector('#poster-style-list'),
   subtitle: document.querySelector('#poster-subtitle'),
+  thresholdDown: document.querySelector('#threshold-down'),
+  thresholdDownLabel: document.querySelector('#threshold-down-label'),
+  thresholdHelp: document.querySelector('#threshold-help'),
+  thresholdUp: document.querySelector('#threshold-up'),
+  thresholdUpLabel: document.querySelector('#threshold-up-label'),
   title: document.querySelector('#poster-title'),
   visualClose: document.querySelector('#poster-visual-close'),
   visualDialog: document.querySelector('#poster-visual-dialog'),
@@ -107,6 +161,8 @@ function modeLabel(mode) {
   if (mode === 'black') return '黑榜';
   if (mode === 'controversy') return '争议 / 一致榜';
   if (mode === 'favorite') return '喜爱榜';
+  if (mode === 'midseason-change') return '中期 → 完结';
+  if (mode === 'bgm-deviation') return 'BGM 偏差';
   return '红榜';
 }
 
@@ -169,7 +225,7 @@ async function loadSourceProjectContext() {
   const url = new URL(window.location.href);
   const projectId = url.searchParams.get('project')?.trim() || recentProjectId();
   posterScope = posterScopeForProjectId(projectId);
-  const storageNote = `四种榜单分别保存在 .local/poster-projects/${posterScope}--<榜单>.json；视觉方案库保存在 .local/poster-visuals/${posterScope}.json，原图仍缓存在 .local/poster-assets/${posterScope}/。`;
+  const storageNote = `六种榜单分别保存在 .local/poster-projects/${posterScope}--<榜单>.json；视觉方案库保存在 .local/poster-visuals/${posterScope}.json，原图仍缓存在 .local/poster-assets/${posterScope}/。`;
   if (!projectId) {
     elements.sourceProjectName.textContent = `独立海报项目。${storageNote}`;
     return;
@@ -204,6 +260,15 @@ function displayRows() {
   return posterDisplayRows(project.items, project.mode).slice(0, 10);
 }
 
+function syncThresholdControls() {
+  const config = THRESHOLD_CONFIG[project.mode] || THRESHOLD_CONFIG.red;
+  elements.thresholdDownLabel.textContent = config.downLabel;
+  elements.thresholdUpLabel.textContent = config.upLabel;
+  elements.thresholdHelp.textContent = config.help;
+  elements.thresholdDown.value = String(project.thresholds[config.downKey]);
+  elements.thresholdUp.value = String(project.thresholds[config.upKey]);
+}
+
 function syncProjectControls() {
   elements.mode.value = project.mode;
   elements.modeLabel.textContent = modeLabel(project.mode);
@@ -212,6 +277,7 @@ function syncProjectControls() {
   elements.headerLineGap.value = String(project.style.headerLineGap);
   elements.minusYOffset.value = String(project.style.deltaMinusYOffset);
   elements.entryCount.textContent = `${project.items.length} 项`;
+  syncThresholdControls();
 }
 
 function serializableProjectObject() {
@@ -252,7 +318,6 @@ function scheduleProjectSave(delay = 180) {
 }
 
 function scheduleVisualSave(delay = 180) {
-  if (!persistenceReady) return;
   if (visualSaveTimer) window.clearTimeout(visualSaveTimer);
   visualSaveTimer = window.setTimeout(() => {
     visualSaveTimer = null;
@@ -645,12 +710,18 @@ function imageInputFor(item) {
   return input;
 }
 
-function appendControversySectionHeading(section) {
+function appendSectionHeading(section) {
+  const labels = {
+    controversial: 'MOST CONTROVERSIAL · 社内标准差最高 5 部',
+    consistent: 'MOST CONSISTENT · 社内标准差最低 5 部',
+    improved: 'MOST IMPROVED · 中期→完结涨幅最高 5 部',
+    declined: 'MOST DECLINED · 中期→完结跌幅最大 5 部',
+    above: 'MOST ABOVE BANGUMI · 相对 BGM 偏高最多 5 部',
+    below: 'MOST BELOW BANGUMI · 相对 BGM 偏低最多 5 部',
+  };
   const heading = document.createElement('p');
   heading.className = 'poster-section-note';
-  heading.textContent = section === 'controversial'
-    ? 'MOST CONTROVERSIAL · 社内标准差最高 5 部'
-    : 'MOST CONSISTENT · 社内标准差最低 5 部';
+  heading.textContent = labels[section] || section;
   elements.entryList.append(heading);
 }
 
@@ -668,8 +739,8 @@ function renderEntryList() {
   let previousSection = '';
   rows.forEach((rowInfo) => {
     const {item, displayRank, section} = rowInfo;
-    if (project.mode === 'controversy' && section !== previousSection) {
-      appendControversySectionHeading(section);
+    if (DUAL_SECTION_MODES.has(project.mode) && section !== previousSection) {
+      appendSectionHeading(section);
       previousSection = section;
     }
 
@@ -721,6 +792,24 @@ function renderEntryList() {
         renderNow();
       }, {type: 'number', step: 1, min: 1});
       numeric.append(favoritePoints.label, top5Count.label, scoreRank.label);
+    } else if (project.mode === 'midseason-change') {
+      const score = inputField('完结均分', item.score, (value) => {
+        item.score = Number(value) || 0;
+        renderNow();
+      }, {type: 'number', step: 0.01});
+      score.input.addEventListener('change', renderEntryList);
+      const midseasonScore = inputField('中期均分', item.midseasonScore ?? '', (value) => {
+        item.midseasonScore = value === '' ? null : Number(value);
+        renderNow();
+      }, {type: 'number', step: 0.0001});
+      midseasonScore.input.addEventListener('change', renderEntryList);
+      const midseasonVoters = inputField('中期评分人数', item.midseasonVoters ?? '', (value) => {
+        const number = Math.round(Number(value) || 0);
+        item.midseasonVoters = value === '' || number <= 0 ? null : number;
+        renderNow();
+      }, {type: 'number', step: 1, min: 1});
+      midseasonVoters.input.addEventListener('change', renderEntryList);
+      numeric.append(score.label, midseasonScore.label, midseasonVoters.label);
     } else {
       const score = inputField('社内均分', item.score, (value) => {
         item.score = Number(value) || 0;
@@ -749,6 +838,7 @@ function renderEntryList() {
           item.bgmScore = value === '' ? null : Number(value);
           renderNow();
         }, {type: 'number', step: 0.0001});
+        if (project.mode === 'bgm-deviation') bgm.input.addEventListener('change', renderEntryList);
         numeric.append(score.label, voters.label, bgm.label);
       }
     }
@@ -1037,11 +1127,22 @@ function downloadPng() {
   }, 'image/png');
 }
 
+function updateThreshold(direction, value) {
+  const config = THRESHOLD_CONFIG[project.mode] || THRESHOLD_CONFIG.red;
+  const key = direction === 'down' ? config.downKey : config.upKey;
+  const number = Number(value);
+  if (!Number.isFinite(number)) return;
+  project.thresholds[key] = number;
+  renderNow();
+}
+
 function bindControls() {
   elements.loadRed.addEventListener('click', () => switchMode('red').catch(() => {}));
   elements.loadBlack.addEventListener('click', () => switchMode('black').catch(() => {}));
   elements.loadControversy.addEventListener('click', () => switchMode('controversy').catch(() => {}));
   elements.loadFavorite.addEventListener('click', () => switchMode('favorite').catch(() => {}));
+  elements.loadMidseasonChange.addEventListener('click', () => switchMode('midseason-change').catch(() => {}));
+  elements.loadBgmDeviation.addEventListener('click', () => switchMode('bgm-deviation').catch(() => {}));
   elements.projectFile.addEventListener('change', async () => {
     const file = elements.projectFile.files?.[0];
     if (!file) return;
@@ -1071,6 +1172,8 @@ function bindControls() {
     project.subtitle = elements.subtitle.value;
     renderNow();
   });
+  elements.thresholdDown.addEventListener('input', () => updateThreshold('down', elements.thresholdDown.value));
+  elements.thresholdUp.addEventListener('input', () => updateThreshold('up', elements.thresholdUp.value));
   elements.headerLineGap.addEventListener('input', () => {
     project.style.headerLineGap = Number(elements.headerLineGap.value) || 0;
     renderNow();
