@@ -40,6 +40,8 @@
               <button class="bgm-button bgm-button--secondary" id="load-black-sample" type="button">切换黑榜</button>
               <button class="bgm-button bgm-button--secondary" id="load-controversy-sample" type="button">切换争议 / 一致榜</button>
               <button class="bgm-button bgm-button--secondary" id="load-favorite-sample" type="button">切换喜爱榜</button>
+              <button class="bgm-button bgm-button--secondary" id="load-midseason-change-sample" type="button">切换中期 → 完结</button>
+              <button class="bgm-button bgm-button--secondary" id="load-bgm-deviation-sample" type="button">切换 BGM 偏差</button>
               <label class="bgm-button bgm-button--secondary bgm-button--color-blue poster-file-button" for="poster-project-file">导入榜单 JSON</label>
               <input id="poster-project-file" class="poster-hidden-file" type="file" accept="application/json,.json" />
             </div>
@@ -54,6 +56,8 @@
                     <option value="black">黑榜</option>
                     <option value="controversy">争议 / 一致榜</option>
                     <option value="favorite">喜爱榜</option>
+                    <option value="midseason-change">中期 → 完结</option>
+                    <option value="bgm-deviation">BGM 偏差</option>
                   </select>
                 </span>
               </label>
@@ -66,6 +70,21 @@
               <span class="field__label">英文副标题</span>
               <span class="bgm-input__wrapper bgm-input__wrapper--rounded"><input class="bgm-input" id="poster-subtitle" type="text" /></span>
             </label>
+
+            <div class="poster-thresholds" aria-labelledby="poster-threshold-heading">
+              <div class="poster-threshold-heading" id="poster-threshold-heading">箭头阈值</div>
+              <div class="field-grid field-grid--two">
+                <label class="field" for="threshold-down">
+                  <span class="field__label" id="threshold-down-label">↓ 阈值</span>
+                  <span class="bgm-input__wrapper bgm-input__wrapper--rounded"><input class="bgm-input" id="threshold-down" type="number" step="0.01" /></span>
+                </label>
+                <label class="field" for="threshold-up">
+                  <span class="field__label" id="threshold-up-label">↑ 阈值</span>
+                  <span class="bgm-input__wrapper bgm-input__wrapper--rounded"><input class="bgm-input" id="threshold-up" type="number" step="0.01" /></span>
+                </label>
+              </div>
+              <p class="poster-section-note" id="threshold-help"></p>
+            </div>
             <small class="field-message" id="poster-data-message" aria-live="polite"></small>
           </section>
 
@@ -73,7 +92,7 @@
             <div class="section-heading">
               <div>
                 <h2 id="poster-entries-heading">榜单条目</h2>
-                <p class="poster-section-note">红 / 黑榜按平均分重排；争议模式取社内标准差最高 5 部与最低 5 部；喜爱榜按 5-4-3-2-1 累计喜爱分排序，同分时优先进入 TOP5 人数更多的作品。</p>
+                <p class="poster-section-note">红 / 黑榜按平均分重排；争议、中期变化和 BGM 偏差榜按上下各 5 部展示；喜爱榜按 5-4-3-2-1 累计喜爱分排序。</p>
               </div>
             </div>
             <div class="poster-entry-list" id="poster-entry-list"></div>
