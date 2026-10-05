@@ -22,6 +22,8 @@ const PUBLIC_FILES = new Set([
   'tools/ranking-poster/sample-black.json',
   'tools/ranking-poster/sample-controversy.json',
   'tools/ranking-poster/sample-favorite.json',
+  'tools/ranking-poster/sample-midseason-change.json',
+  'tools/ranking-poster/sample-bgm-deviation.json',
 ]);
 
 const MIME_TYPES = new Map([
