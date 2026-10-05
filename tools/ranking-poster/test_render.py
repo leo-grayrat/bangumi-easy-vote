@@ -66,14 +66,94 @@ class RenderBehaviorTests(unittest.TestCase):
             ["C", "B", "A"],
         )
 
-    def test_red_and_black_use_different_trend_baselines(self):
-        self.assertEqual(render.trend_state(8.8, 8.0, "red"), "flat")
-        self.assertEqual(render.trend_state(8.8, 7.5, "red"), "up")
-        self.assertEqual(render.trend_state(8.0, 8.0, "red"), "down")
+    def test_score_comparison_modes_share_adjustable_bangumi_thresholds(self):
+        for mode in ("red", "black", "bgm-deviation"):
+            self.assertEqual(render.trend_state(7.69, 7.0, mode), "flat")
+            self.assertEqual(render.trend_state(7.70, 7.0, mode), "up")
+            self.assertEqual(render.trend_state(6.99, 7.0, mode), "down")
+            self.assertEqual(
+                render.trend_state(
+                    7.20,
+                    7.0,
+                    mode,
+                    {"scoreBgmDown": 0.1, "scoreBgmUp": 0.3},
+                ),
+                "flat",
+            )
 
-        self.assertEqual(render.trend_state(4.8, 5.5, "black"), "flat")
-        self.assertEqual(render.trend_state(4.0, 5.5, "black"), "down")
-        self.assertEqual(render.trend_state(5.5, 5.5, "black"), "up")
+    def test_legacy_red_black_thresholds_are_still_read_when_new_fields_are_absent(self):
+        self.assertEqual(
+            render.trend_state(8.8, 8.0, "red", {"redDown": 0.4, "redUp": 1.0}),
+            "flat",
+        )
+        self.assertEqual(
+            render.trend_state(5.5, 5.5, "black", {"blackDown": -1.0, "blackUp": -0.4}),
+            "up",
+        )
+
+    def test_controversy_uses_one_adjustable_sd_threshold_pair(self):
+        self.assertEqual(render.controversy_trend_state(1.50, 1.00), "up")
+        self.assertEqual(render.controversy_trend_state(0.50, 1.00), "down")
+        self.assertEqual(render.controversy_trend_state(1.10, 1.00), "flat")
+        self.assertEqual(
+            render.controversy_trend_state(
+                1.25,
+                1.00,
+                {"controversyDown": -0.2, "controversyUp": 0.2},
+            ),
+            "up",
+        )
+
+    def test_midseason_thresholds_default_to_positive_negative_around_zero(self):
+        self.assertEqual(render.midseason_trend_state(7.01, 7.00), "up")
+        self.assertEqual(render.midseason_trend_state(6.99, 7.00), "down")
+        self.assertEqual(render.midseason_trend_state(7.00, 7.00), "flat")
+        thresholds = {"midseasonDown": -0.3, "midseasonUp": 0.3}
+        self.assertEqual(render.midseason_trend_state(7.2, 7.0, thresholds), "flat")
+        self.assertEqual(render.midseason_trend_state(7.4, 7.0, thresholds), "up")
+        self.assertEqual(render.midseason_trend_state(6.6, 7.0, thresholds), "down")
+
+    def test_three_dual_section_modes_use_separate_one_to_five_ranks_without_overlap(self):
+        controversy_items = [
+            {"title": f"C{i}", "stdDev": i / 10, "voters": 10}
+            for i in range(12)
+        ]
+        controversy_rows = render.display_rows(controversy_items, "controversy")
+        self.assertEqual([row["section"] for row in controversy_rows[:5]], ["controversial"] * 5)
+        self.assertEqual([row["section"] for row in controversy_rows[5:]], ["consistent"] * 5)
+        self.assertEqual([row["display_rank"] for row in controversy_rows], [1,2,3,4,5,1,2,3,4,5])
+        self.assertEqual(len({id(row["item"]) for row in controversy_rows}), 10)
+
+        mid_items = [
+            {"title": f"M{i}", "score": 7.0, "midseasonScore": 7.0 - delta, "midseasonVoters": 8}
+            for i, delta in enumerate([-2,-1.5,-1,-0.5,-0.2,0.1,0.4,0.8,1.2,1.6,2.0,2.5])
+        ]
+        mid_rows = render.display_rows(mid_items, "midseason-change")
+        self.assertEqual([row["section"] for row in mid_rows[:5]], ["improved"] * 5)
+        self.assertEqual([row["section"] for row in mid_rows[5:]], ["declined"] * 5)
+        self.assertEqual(len({id(row["item"]) for row in mid_rows}), 10)
+
+        bgm_items = [
+            {"title": f"B{i}", "score": 7.0, "bgmScore": 7.0 - delta, "voters": 10}
+            for i, delta in enumerate([-1.2,-0.9,-0.4,-0.2,-0.1,0.1,0.3,0.5,0.8,1.0,1.4,1.8])
+        ]
+        bgm_rows = render.display_rows(bgm_items, "bgm-deviation")
+        self.assertEqual([row["section"] for row in bgm_rows[:5]], ["above"] * 5)
+        self.assertEqual([row["section"] for row in bgm_rows[5:]], ["below"] * 5)
+        self.assertEqual(len({id(row["item"]) for row in bgm_rows}), 10)
+
+    def test_midseason_row_uses_midseason_voter_count_in_footer(self):
+        metric, delta, state, left, right = render.row_values(
+            {"score": 5.0, "midseasonScore": 3.125, "midseasonVoters": 8},
+            "midseason-change",
+            1,
+            {},
+        )
+        self.assertEqual(metric, "5.00")
+        self.assertEqual(delta, "+1.88")
+        self.assertEqual(state, "up")
+        self.assertEqual(left, "MID N8")
+        self.assertEqual(right, "MID 3.12")
 
     def test_stats_headers_fit_above_first_row(self):
         self.assertLessEqual(
@@ -112,7 +192,7 @@ class RenderBehaviorTests(unittest.TestCase):
             render.render(
                 {
                     "mode": "red",
-                    "items": [{"title": "A", "score": 8.5, "voters": 7, "bgm_score": 7.0}],
+                    "items": [{"title": "A", "score": 8.5, "voters": 7, "bgmScore": 7.0}],
                 },
                 out,
             )
@@ -144,7 +224,7 @@ class RenderBehaviorTests(unittest.TestCase):
         layout = render.header_text_layout(
             draw,
             fonts,
-            {"title": "7月新番中期评分 TOP 10", "subtitle": "2026 MID-SEASON RESULTS"},
+            {"title": "7月新番完结评分 TOP 10", "subtitle": "SEASON FINALE TOP 10 ANIME"},
         )
         top_margin = layout["block_top"]
         bottom_margin = render.L.header_h - layout["block_bottom"]
@@ -161,17 +241,36 @@ class RenderBehaviorTests(unittest.TestCase):
             with Image.open(out_a) as a, Image.open(out_b) as b:
                 self.assertIsNone(ImageChops.difference(a, b).getbbox())
 
-    def test_red_sample_keeps_only_the_two_explicit_title_overrides(self):
+    def test_all_six_samples_render_exactly_ten_display_rows(self):
+        filenames = [
+            "sample.json",
+            "sample-black.json",
+            "sample-favorite.json",
+            "sample-controversy.json",
+            "sample-midseason-change.json",
+            "sample-bgm-deviation.json",
+        ]
+        for filename in filenames:
+            cfg = json.loads((HERE / filename).read_text(encoding="utf-8"))
+            rows = render.display_rows(cfg["items"], cfg["mode"])
+            self.assertEqual(len(rows), 10, filename)
+            self.assertEqual(set(cfg["thresholds"]), {
+                "scoreBgmDown",
+                "scoreBgmUp",
+                "controversyDown",
+                "controversyUp",
+                "favoriteDown",
+                "favoriteUp",
+                "midseasonDown",
+                "midseasonUp",
+            })
+
+    def test_red_sample_is_the_finale_top_ten(self):
         cfg = json.loads((HERE / "sample.json").read_text(encoding="utf-8"))
-        by_title = {item["title"]: item for item in cfg["items"]}
-        self.assertIn("黄泉的使者", by_title)
-        self.assertNotIn("黄泉的使者（后半部分）", by_title)
-        re0 = next(item for item in cfg["items"] if item["title"].startswith("Re:从零开始"))
-        self.assertEqual(
-            re0.get("title_lines"),
-            ["Re:从零开始的异世界生活 第4期", "Part.2 夺还篇"],
-        )
-        self.assertEqual(sum("title_lines" in item for item in cfg["items"]), 1)
+        rows = render.display_rows(cfg["items"], cfg["mode"])
+        self.assertEqual(cfg["title"], "7月新番完结评分 TOP 10")
+        self.assertEqual(rows[0]["item"]["title"], "穹庐下的魔女")
+        self.assertEqual(rows[-1]["item"]["title"], "画完这个在去死")
 
 
 if __name__ == "__main__":
