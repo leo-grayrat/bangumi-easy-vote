@@ -179,6 +179,43 @@ test('new mode defaults use the agreed headers', () => {
   assert.match(bgm.subtitle, /MOST ABOVE BANGUMI \/ MOST BELOW BANGUMI/);
 });
 
+test('all six built-in samples normalize to exactly ten display rows with the new threshold structure', async () => {
+  const samples = [
+    ['tools/ranking-poster/sample.json', 'red'],
+    ['tools/ranking-poster/sample-black.json', 'black'],
+    ['tools/ranking-poster/sample-favorite.json', 'favorite'],
+    ['tools/ranking-poster/sample-controversy.json', 'controversy'],
+    ['tools/ranking-poster/sample-midseason-change.json', 'midseason-change'],
+    ['tools/ranking-poster/sample-bgm-deviation.json', 'bgm-deviation'],
+  ];
+  const thresholdKeys = [
+    'controversyDown',
+    'controversyUp',
+    'favoriteDown',
+    'favoriteUp',
+    'midseasonDown',
+    'midseasonUp',
+    'scoreBgmDown',
+    'scoreBgmUp',
+  ];
+  for (const [path, expectedMode] of samples) {
+    const raw = JSON.parse(await source(path));
+    const project = normalizePosterProject(raw);
+    assert.equal(project.mode, expectedMode, path);
+    assert.equal(posterDisplayRows(project.items, project.mode).length, 10, path);
+    assert.deepEqual(Object.keys(project.thresholds).sort(), thresholdKeys, path);
+  }
+});
+
+test('midseason sample keeps the survey-period voter count, not the finale voter count', async () => {
+  const raw = JSON.parse(await source('tools/ranking-poster/sample-midseason-change.json'));
+  const project = normalizePosterProject(raw);
+  const byTitle = new Map(project.items.map((item) => [item.title, item]));
+  assert.equal(byTitle.get('BanG Dream! YUME∞MITA').midseasonVoters, 8);
+  assert.equal(byTitle.get('再见 拉拉').midseasonVoters, 10);
+  assert.equal(byTitle.get('死神 千年血战篇 Part.4 祸进谭').midseasonVoters, 4);
+});
+
 test('browser source exposes six modes, two new samples, editable thresholds and midseason fields', async () => {
   const [page, editor, renderer, server] = await Promise.all([
     source('poster.html'),
