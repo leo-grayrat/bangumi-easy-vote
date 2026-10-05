@@ -1,25 +1,28 @@
 {
   "mode": "black",
   "brand_color": [255, 102, 113],
-  "title": "7月新番中期黑榜 BOTTOM 10",
-  "subtitle": "MID-SEASON BOTTOM 10 ANIME",
-  "assets": "tools/ranking-poster/assets",
+  "title": "7月新番完结黑榜 BOTTOM 10",
+  "subtitle": "SEASON FINALE BOTTOM 10 ANIME",
   "thresholds": {
-    "red_up": 1.0,
-    "red_down": 0.4,
-    "black_up": -0.4,
-    "black_down": -1.0
+    "scoreBgmDown": 0.0,
+    "scoreBgmUp": 0.7,
+    "controversyDown": -0.5,
+    "controversyUp": 0.5,
+    "favoriteDown": 0,
+    "favoriteUp": 5,
+    "midseasonDown": 0.0,
+    "midseasonUp": 0.0
   },
   "items": [
-    {"title": "BanG Dream! YUME∞MITA", "score": 3.125, "voters": 8, "bgm_score": 5.5408, "image": "b01.jpg", "focus": [0.50, 0.50]},
-    {"title": "二十世纪电气目录", "score": 4.1428571429, "voters": 7, "bgm_score": 5.4682, "image": "b03.jpg", "focus": [0.50, 0.50]},
-    {"title": "转学后班上的清纯可爱美少女 竟是小时候玩在一起的哥们", "score": 4.25, "voters": 4, "bgm_score": 4.9799, "image": "b02.jpg", "focus": [0.50, 0.50]},
-    {"title": "世界舞动", "score": 4.80, "voters": 5, "bgm_score": 5.4706, "image": "b04.jpg", "focus": [0.50, 0.50]},
-    {"title": "擅长逃跑的殿下 第2期", "score": 6.20, "voters": 5, "bgm_score": 6.8240, "image": "b05.jpg", "focus": [0.50, 0.50]},
-    {"title": "GrowUpShow 向日葵马戏团", "score": 6.4444444444, "voters": 9, "bgm_score": 7.1388, "image": "b06.jpg", "focus": [0.50, 0.50]},
-    {"title": "躲在超市后门抽烟的两人", "score": 6.625, "voters": 8, "bgm_score": 7.0039, "image": "b09.jpg", "focus": [0.50, 0.50]},
-    {"title": "尼古喵喵", "score": 6.7777777778, "voters": 9, "bgm_score": 7.2887, "image": "b07.jpg", "focus": [0.50, 0.50]},
-    {"title": "少女怪兽焦糖味", "score": 6.8333333333, "voters": 6, "bgm_score": 6.5218, "image": "b08.jpg", "focus": [0.50, 0.50]},
-    {"title": "再见 拉拉", "score": 7.00, "voters": 10, "bgm_score": 7.6032636410, "image": "b10.jpg", "focus": [0.50, 0.50]}
+    {"title": "BanG Dream! YUME∞MITA", "score": 5.0, "voters": 31, "bgmScore": 4.74},
+    {"title": "二十世纪电气目录", "score": 5.0, "voters": 14, "bgmScore": 4.79},
+    {"title": "世界舞动", "score": 5.2222222222, "voters": 9, "bgmScore": 5.31},
+    {"title": "再见 拉拉", "score": 5.5555555556, "voters": 27, "bgmScore": 6.54},
+    {"title": "转学后班上的清纯可爱美少女 竟是小时候玩在一起的哥们", "score": 5.8333333333, "voters": 12, "bgmScore": 4.88},
+    {"title": "刃牙道 第二部分", "score": 6.625, "voters": 8, "bgmScore": 5.99},
+    {"title": "幼女战记 第2期", "score": 6.9, "voters": 10, "bgmScore": 7.13},
+    {"title": "Clevatess 第2期 魔兽之王与虚假的勇者传承", "score": 7.0, "voters": 10, "bgmScore": 6.87},
+    {"title": "GrowUpShow向日葵马戏团", "score": 7.1052631579, "voters": 19, "bgmScore": 7.22},
+    {"title": "新 攻壳机动队", "score": 7.125, "voters": 16, "bgmScore": 7.11}
   ]
 }
