@@ -2,6 +2,7 @@ import {
   controversyTrendState,
   cropTransform,
   favoriteTrendState,
+  midseasonTrendState,
   posterDisplayRows,
   trendState,
 } from './poster-model.js';
@@ -39,6 +40,16 @@ const COLORS = Object.freeze({
   trendDown: '#dd0000',
   white: '#ffffff',
   black: '#000000',
+});
+
+const DUAL_SECTION_MODES = new Set(['controversy', 'midseason-change', 'bgm-deviation']);
+const SECTION_BADGES = Object.freeze({
+  controversial: 'MOST CONTROVERSIAL',
+  consistent: 'MOST CONSISTENT',
+  improved: 'MOST IMPROVED',
+  declined: 'MOST DECLINED',
+  above: 'MOST ABOVE BANGUMI',
+  below: 'MOST BELOW BANGUMI',
 });
 
 export function measurePosterRows() {
@@ -210,8 +221,8 @@ function drawAnimeTitle(ctx, item, x, y, style) {
 }
 
 function drawSectionBadge(ctx, section, x, y, project) {
-  if (section !== 'controversial' && section !== 'consistent') return;
-  const text = section === 'controversial' ? 'MOST CONTROVERSIAL' : 'MOST CONSISTENT';
+  const text = SECTION_BADGES[section];
+  if (!text) return;
   ctx.save();
   ctx.font = fontString(900, 13, project.style.fontFamilies.label);
   const width = Math.ceil(ctx.measureText(text).width) + 22;
@@ -290,7 +301,7 @@ function drawRow(ctx, project, rowInfo, rankIndex, resources) {
 
   const image = resources.images?.get?.(item.id) || resources.images?.[item.id] || null;
   drawVisual(ctx, item, image, visualX, y);
-  if (project.mode === 'controversy' && (rankIndex === 0 || rankIndex === 5)) {
+  if (DUAL_SECTION_MODES.has(project.mode) && (rankIndex === 0 || rankIndex === 5)) {
     drawSectionBadge(ctx, section, visualX, y, project);
   }
 
@@ -302,6 +313,7 @@ function drawRow(ctx, project, rowInfo, rankIndex, resources) {
 
   const controversy = project.mode === 'controversy';
   const favorite = project.mode === 'favorite';
+  const midseason = project.mode === 'midseason-change';
   const metric = controversy ? Number(item.stdDev) : favorite ? Number(item.favoritePoints) : Number(item.score);
   const metricText = favorite
     ? Number.isFinite(metric) ? String(Math.round(metric)) : '--'
@@ -310,18 +322,28 @@ function drawRow(ctx, project, rowInfo, rankIndex, resources) {
     font: fontString(900, project.style.fontSizes.metric, project.style.fontFamilies.metric),
   });
 
-  const comparisonValue = controversy ? item.bgmStdDev : favorite ? item.scoreRank : item.bgmScore;
+  const comparisonValue = controversy
+    ? item.bgmStdDev
+    : favorite
+      ? item.scoreRank
+      : midseason
+        ? item.midseasonScore
+        : item.bgmScore;
   const hasComparison = comparisonValue !== null && comparisonValue !== undefined && comparisonValue !== '';
   const state = controversy
     ? controversyTrendState(item.stdDev, item.bgmStdDev, section, project.thresholds)
     : favorite
       ? favoriteTrendState(displayRank, item.scoreRank, project.thresholds)
-      : trendState(item.score, item.bgmScore, project.mode, project.thresholds);
+      : midseason
+        ? midseasonTrendState(item.score, item.midseasonScore, project.thresholds)
+        : trendState(item.score, item.bgmScore, project.mode, project.thresholds);
   const delta = controversy
     ? Number(item.stdDev) - Number(item.bgmStdDev ?? item.stdDev)
     : favorite
       ? Number(item.scoreRank ?? displayRank) - displayRank
-      : Number(item.score) - Number(item.bgmScore ?? item.score);
+      : midseason
+        ? Number(item.score) - Number(item.midseasonScore ?? item.score)
+        : Number(item.score) - Number(item.bgmScore ?? item.score);
   drawContainedImage(ctx, resources.trendIcons?.[state], split + 6, y + 27, split + 78, y + 91);
   if (hasComparison) {
     if (favorite) drawRankDifference(ctx, delta, split + 79, y, POSTER_LAYOUT.right - 4, footY, project);
@@ -340,7 +362,9 @@ function drawRow(ctx, project, rowInfo, rankIndex, resources) {
     ? `AVG ${Number(item.score).toFixed(2)} · N${item.voters}`
     : favorite
       ? `TOP5 ${item.top5Count}`
-      : `投票数 ${item.voters}`;
+      : midseason
+        ? `MID N${item.midseasonVoters ?? '--'}`
+        : `投票数 ${item.voters}`;
   const rightFoot = controversy
     ? item.bgmStdDev === null || item.bgmStdDev === undefined
       ? 'BGM SD --'
@@ -349,9 +373,13 @@ function drawRow(ctx, project, rowInfo, rankIndex, resources) {
       ? item.scoreRank === null || item.scoreRank === undefined
         ? 'SCORE --'
         : `SCORE #${item.scoreRank}`
-      : item.bgmScore === null || item.bgmScore === undefined
-        ? 'BGM --'
-        : `BGM ${Number(item.bgmScore).toFixed(2)}`;
+      : midseason
+        ? item.midseasonScore === null || item.midseasonScore === undefined
+          ? 'MID --'
+          : `MID ${Number(item.midseasonScore).toFixed(2)}`
+        : item.bgmScore === null || item.bgmScore === undefined
+          ? 'BGM --'
+          : `BGM ${Number(item.bgmScore).toFixed(2)}`;
   centerText(ctx, leftFoot, statsX, footY, split, bottom, {
     font: fontString(800, project.style.fontSizes.aux, project.style.fontFamilies.aux),
     fill: stripText,
