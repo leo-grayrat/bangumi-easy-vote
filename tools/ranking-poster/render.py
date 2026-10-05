@@ -63,6 +63,27 @@ COLORS = {
     "label_red": (221, 0, 0),
 }
 
+DEFAULT_THRESHOLDS = {
+    "scoreBgmDown": 0.0,
+    "scoreBgmUp": 0.7,
+    "controversyDown": -0.5,
+    "controversyUp": 0.5,
+    "favoriteDown": 0.0,
+    "favoriteUp": 5.0,
+    "midseasonDown": 0.0,
+    "midseasonUp": 0.0,
+}
+
+DUAL_MODES = {"controversy", "midseason-change", "bgm-deviation"}
+SECTION_BADGES = {
+    "controversial": "MOST CONTROVERSIAL",
+    "consistent": "MOST CONSISTENT",
+    "improved": "MOST IMPROVED",
+    "declined": "MOST DECLINED",
+    "above": "MOST ABOVE BANGUMI",
+    "below": "MOST BELOW BANGUMI",
+}
+
 DEFAULT_FONT_SIZES = {
     "header_title": 60,
     "header_subtitle": 34,
@@ -80,7 +101,7 @@ DEFAULT_FONT_SIZES = {
 LATIN_HEAVY_DEFAULTS = [
     "/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed-Bold.ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-    "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+    "/usr/share/truetype/liberation2/LiberationSans-Bold.ttf",
 ]
 CJK_HEAVY_DEFAULTS = [
     "/usr/share/opentype/noto/NotoSansCJK-Bold.ttc",
@@ -115,8 +136,20 @@ def _font(candidates: Iterable[str | None], size: int, *, preferred_ttc_index: i
 
 
 def _font_size(cfg: dict, role: str) -> int:
-    sizes = cfg.get("font_sizes", {}) or {}
-    return int(sizes.get(role, DEFAULT_FONT_SIZES[role]))
+    sizes = cfg.get("font_sizes", cfg.get("fontSizes", {})) or {}
+    return int(sizes.get(role, sizes.get(_camel(role), DEFAULT_FONT_SIZES[role])))
+
+
+def _camel(value: str) -> str:
+    head, *tail = value.split("_")
+    return head + "".join(part[:1].upper() + part[1:] for part in tail)
+
+
+def value(item: dict, *keys: str, default=None):
+    for key in keys:
+        if key in item and item[key] is not None:
+            return item[key]
+    return default
 
 
 def load_fonts(cfg: dict | None = None) -> dict[str, ImageFont.ImageFont]:
@@ -140,43 +173,138 @@ def load_fonts(cfg: dict | None = None) -> dict[str, ImageFont.ImageFont]:
     }
 
 
+def _threshold(thresholds: dict, name: str, default: float, *legacy: str) -> float:
+    for key in (name, _camel(name), *legacy):
+        if key in thresholds and thresholds[key] is not None:
+            return float(thresholds[key])
+    return float(default)
+
+
+def _score_thresholds(thresholds: dict | None, mode: str) -> tuple[float, float]:
+    thresholds = thresholds or {}
+    if mode == "red":
+        legacy_down = ("red_down", "redDown")
+        legacy_up = ("red_up", "redUp")
+    elif mode == "black":
+        legacy_down = ("black_down", "blackDown")
+        legacy_up = ("black_up", "blackUp")
+    else:
+        legacy_down = ()
+        legacy_up = ()
+    down = _threshold(thresholds, "score_bgm_down", DEFAULT_THRESHOLDS["scoreBgmDown"], *legacy_down)
+    up = _threshold(thresholds, "score_bgm_up", DEFAULT_THRESHOLDS["scoreBgmUp"], *legacy_up)
+    return down, up
+
+
+def score_delta(item: dict) -> float:
+    return float(value(item, "score", default=0)) - float(value(item, "bgmScore", "bgm_score", default=0))
+
+
+def midseason_delta(item: dict) -> float:
+    return float(value(item, "score", default=0)) - float(value(item, "midseasonScore", "midseason_score", default=0))
+
+
 def sort_items(items: list[dict], mode: str) -> list[dict]:
     if mode == "black":
-        return sorted(items, key=lambda item: (float(item.get("score", 0)), -int(item.get("voters", 0))))
-    if mode != "red":
-        raise ValueError("mode must be 'red' or 'black'")
-    return sorted(items, key=lambda item: (-float(item.get("score", 0)), -int(item.get("voters", 0))))
+        return sorted(items, key=lambda item: (float(value(item, "score", default=0)), -int(value(item, "voters", default=0))))
+    if mode == "red":
+        return sorted(items, key=lambda item: (-float(value(item, "score", default=0)), -int(value(item, "voters", default=0))))
+    if mode == "controversy":
+        return sorted(items, key=lambda item: (-float(value(item, "stdDev", "std_dev", default=0)), -int(value(item, "voters", default=0))))
+    if mode == "favorite":
+        return sorted(items, key=lambda item: (-float(value(item, "favoritePoints", "favorite_points", default=0)), -int(value(item, "top5Count", "top5_count", default=0))))
+    if mode == "midseason-change":
+        return sorted(items, key=lambda item: (-midseason_delta(item), -int(value(item, "midseasonVoters", "midseason_voters", default=0))))
+    if mode == "bgm-deviation":
+        return sorted(items, key=lambda item: (-score_delta(item), -int(value(item, "voters", default=0))))
+    raise ValueError(f"unknown poster mode: {mode}")
+
+
+def display_rows(items: list[dict], mode: str) -> list[dict]:
+    if mode not in DUAL_MODES:
+        return [{"item": item, "section": mode, "display_rank": index + 1} for index, item in enumerate(sort_items(items, mode)[:10])]
+
+    if mode == "controversy":
+        high = sort_items(items, mode)[:5]
+        remaining = [item for item in items if item not in high]
+        low = sorted(remaining, key=lambda item: (float(value(item, "stdDev", "std_dev", default=0)), -int(value(item, "voters", default=0))))[:5]
+        sections = ("controversial", "consistent")
+    elif mode == "midseason-change":
+        high = sort_items(items, mode)[:5]
+        remaining = [item for item in items if item not in high]
+        low = sorted(remaining, key=lambda item: (midseason_delta(item), -int(value(item, "midseasonVoters", "midseason_voters", default=0))))[:5]
+        sections = ("improved", "declined")
+    else:
+        high = sort_items(items, mode)[:5]
+        remaining = [item for item in items if item not in high]
+        low = sorted(remaining, key=lambda item: (score_delta(item), -int(value(item, "voters", default=0))))[:5]
+        sections = ("above", "below")
+
+    return [
+        *({"item": item, "section": sections[0], "display_rank": index + 1} for index, item in enumerate(high)),
+        *({"item": item, "section": sections[1], "display_rank": index + 1} for index, item in enumerate(low)),
+    ]
 
 
 def trend_state(score: float, bgm_score: float, mode: str, thresholds: dict | None = None) -> str:
-    thresholds = thresholds or {}
+    if mode not in {"red", "black", "bgm-deviation"}:
+        raise ValueError("trend_state supports red, black and bgm-deviation")
+    down, up = _score_thresholds(thresholds, mode)
     delta = float(score) - float(bgm_score)
-    if mode == "red":
-        if delta >= float(thresholds.get("red_up", 1.0)):
-            return "up"
-        if delta < float(thresholds.get("red_down", 0.4)):
-            return "down"
-        return "flat"
-    if mode == "black":
-        if delta > float(thresholds.get("black_up", -0.4)):
-            return "up"
-        if delta <= float(thresholds.get("black_down", -1.0)):
-            return "down"
-        return "flat"
-    raise ValueError("mode must be 'red' or 'black'")
+    if delta >= up:
+        return "up"
+    if delta < down:
+        return "down"
+    return "flat"
+
+
+def controversy_trend_state(std_dev: float, bgm_std_dev: float, thresholds: dict | None = None) -> str:
+    thresholds = thresholds or {}
+    down = _threshold(thresholds, "controversy_down", DEFAULT_THRESHOLDS["controversyDown"])
+    up = _threshold(thresholds, "controversy_up", DEFAULT_THRESHOLDS["controversyUp"])
+    delta = float(std_dev) - float(bgm_std_dev)
+    if delta >= up:
+        return "up"
+    if delta <= down:
+        return "down"
+    return "flat"
+
+
+def favorite_trend_state(favorite_rank: int, score_rank: int, thresholds: dict | None = None) -> str:
+    thresholds = thresholds or {}
+    down = _threshold(thresholds, "favorite_down", DEFAULT_THRESHOLDS["favoriteDown"])
+    up = _threshold(thresholds, "favorite_up", DEFAULT_THRESHOLDS["favoriteUp"])
+    delta = int(score_rank) - int(favorite_rank)
+    if delta >= up:
+        return "up"
+    if delta < down:
+        return "down"
+    return "flat"
+
+
+def midseason_trend_state(score: float, midseason_score: float, thresholds: dict | None = None) -> str:
+    thresholds = thresholds or {}
+    down = _threshold(thresholds, "midseason_down", DEFAULT_THRESHOLDS["midseasonDown"])
+    up = _threshold(thresholds, "midseason_up", DEFAULT_THRESHOLDS["midseasonUp"])
+    delta = float(score) - float(midseason_score)
+    if delta > up:
+        return "up"
+    if delta < down:
+        return "down"
+    return "flat"
 
 
 def comparison_values(item: dict, mode: str, thresholds: dict | None) -> tuple[str, str, str]:
-    bgm = item.get("bgm_score")
+    bgm = value(item, "bgmScore", "bgm_score")
     if bgm is None:
         return "BGM --", "—", "flat"
     bgm = float(bgm)
-    delta = float(item.get("score", 0)) - bgm
-    return f"BGM {bgm:.2f}", f"{delta:+.2f}", trend_state(float(item.get("score", 0)), bgm, mode, thresholds)
+    score = float(value(item, "score", default=0))
+    delta = score - bgm
+    return f"BGM {bgm:.2f}", f"{delta:+.2f}", trend_state(score, bgm, mode, thresholds)
 
 
 def delta_parts(label: str) -> tuple[str, str]:
-    """Split a signed delta so + and minus occupy the same fixed-width slot."""
     if label.startswith("+"):
         return "+", label[1:]
     if label.startswith("-") or label.startswith("−"):
@@ -253,21 +381,14 @@ def fit_text(draw, text: str, fonts: list[ImageFont.ImageFont], max_width: int, 
 
 
 def resolve_title_lines(draw, item: dict, fonts: dict, max_width: int):
-    """Use an explicit per-item line break only when one is provided."""
-    explicit = item.get("title_lines")
+    explicit = value(item, "titleLines", "title_lines")
     if explicit:
         lines = [str(line) for line in explicit if str(line)][:2]
         for font in (fonts["anime"], fonts["anime_small"]):
             if all(draw.textbbox((0, 0), line, font=font)[2] <= max_width for line in lines):
                 return lines, font
         return lines, fonts["anime_small"]
-    return fit_text(
-        draw,
-        str(item.get("title", "UNTITLED")),
-        [fonts["anime"], fonts["anime_small"]],
-        max_width,
-        2,
-    )
+    return fit_text(draw, str(item.get("title", "UNTITLED")), [fonts["anime"], fonts["anime_small"]], max_width, 2)
 
 
 def _center_text(draw, text, font, box, fill):
@@ -284,32 +405,23 @@ def _draw_text_top(draw, text: str, font, x: int, top: int, fill):
 
 
 def header_text_layout(draw: ImageDraw.ImageDraw, fonts, cfg) -> dict[str, int | str]:
-    """Measure the two-line title block and center it vertically in the header."""
     title = cfg.get("title", "7月新番中期评分 TOP 10")
     subtitle = cfg.get("subtitle", "MID-SEASON TOP 10 ANIME")
     title_box = draw.textbbox((0, 0), title, font=fonts["header_title"])
     subtitle_box = draw.textbbox((0, 0), subtitle, font=fonts["header_subtitle"])
     title_h = title_box[3] - title_box[1]
     subtitle_h = subtitle_box[3] - subtitle_box[1]
-    gap = int(cfg.get("header_line_gap", L.header_line_gap))
+    gap = int(value(cfg, "headerLineGap", "header_line_gap", default=L.header_line_gap))
     block_h = title_h + gap + subtitle_h
     block_top = round((L.header_h - block_h) / 2)
     subtitle_top = block_top + title_h + gap
-    return {
-        "title": title,
-        "subtitle": subtitle,
-        "title_top": block_top,
-        "subtitle_top": subtitle_top,
-        "block_top": block_top,
-        "block_bottom": subtitle_top + subtitle_h,
-    }
+    return {"title": title, "subtitle": subtitle, "title_top": block_top, "subtitle_top": subtitle_top, "block_top": block_top, "block_bottom": subtitle_top + subtitle_h}
 
 
 def draw_header(draw: ImageDraw.ImageDraw, fonts, cfg):
     draw.rectangle((0, 0, L.width, L.header_h - 1), fill=COLORS["header"])
-    brand_color = tuple(cfg.get("brand_color", COLORS["rank_top"]))
+    brand_color = tuple(cfg.get("brand_color", cfg.get("brandColor", COLORS["rank_top"])))
     draw.rectangle((0, 0, L.brand_w - 1, L.header_h - 1), fill=brand_color)
-
     layout = header_text_layout(draw, fonts, cfg)
     _draw_text_top(draw, layout["title"], fonts["header_title"], 365, layout["title_top"], COLORS["white"])
     _draw_text_top(draw, layout["subtitle"], fonts["header_subtitle"], 365, layout["subtitle_top"], COLORS["white"])
@@ -318,14 +430,16 @@ def draw_header(draw: ImageDraw.ImageDraw, fonts, cfg):
 def draw_stats_column_headers(draw: ImageDraw.ImageDraw, fonts, cfg):
     x1, split, y = L.stats_x, L.stats_x + L.stats_split, L.stats_head_y
     bottom = y + L.stats_head_h
+    mode = cfg.get("mode", "red")
+    metric_label = "STD. DEV." if mode == "controversy" else "FAVORITE PTS" if mode == "favorite" else "AVERAGE SCORE"
+    comparison_label = value(cfg, "comparisonLabel", "comparison_label", default="VS MID-SEASON" if mode == "midseason-change" else "VS SCORE RANK" if mode == "favorite" else "VS BANGUMI")
     draw.rectangle((x1, y, split - 1, bottom - 1), fill=COLORS["label_red"])
     draw.rectangle((split, y, L.right - 1, bottom - 1), fill=COLORS["white"])
-    _center_text(draw, "AVERAGE SCORE", fonts["label"], (x1, y, split, bottom), COLORS["white"])
-    _center_text(draw, cfg.get("comparison_label", "VS BANGUMI"), fonts["label"], (split, y, L.right, bottom), COLORS["black"])
+    _center_text(draw, metric_label, fonts["label"], (x1, y, split, bottom), COLORS["white"])
+    _center_text(draw, comparison_label, fonts["label"], (split, y, L.right, bottom), COLORS["black"])
 
 
 def draw_delta_text(draw: ImageDraw.ImageDraw, label: str, font, box, fill, *, minus_y_offset: int = 0) -> None:
-    """Center a delta while reserving an equal-width slot for + and minus."""
     x1, y1, x2, y2 = box
     sign, magnitude = delta_parts(label)
     mag_box = draw.textbbox((0, 0), magnitude, font=font)
@@ -339,7 +453,57 @@ def draw_delta_text(draw: ImageDraw.ImageDraw, label: str, font, box, fill, *, m
     _center_text(draw, magnitude, font, (left + sign_w, y1, left + sign_w + mag_w, y2), fill)
 
 
-def draw_row(canvas, draw, fonts, item: dict, idx: int, assets: Path, mode: str, thresholds: dict | None, cfg: dict):
+def draw_section_badge(draw: ImageDraw.ImageDraw, section: str, fonts: dict, visual_x: int, y: int) -> None:
+    text = SECTION_BADGES.get(section)
+    if not text:
+        return
+    width = draw.textbbox((0, 0), text, font=fonts["label"])[2] + 22
+    draw.rectangle((visual_x + 12, y + 10, visual_x + 12 + width, y + 34), fill=(0, 0, 0, 184))
+    _center_text(draw, text, fonts["label"], (visual_x + 12, y + 10, visual_x + 12 + width, y + 34), COLORS["white"])
+
+
+def row_values(item: dict, mode: str, display_rank: int, thresholds: dict) -> tuple[str, str, str, str, str]:
+    score = float(value(item, "score", default=0))
+    if mode == "controversy":
+        std = float(value(item, "stdDev", "std_dev", default=0))
+        bgm_std = value(item, "bgmStdDev", "bgm_std_dev")
+        if bgm_std is None:
+            return f"{std:.2f}", "—", "flat", f"AVG {score:.2f} · N{int(value(item, 'voters', default=0))}", "BGM SD --"
+        bgm_std = float(bgm_std)
+        delta = std - bgm_std
+        return f"{std:.2f}", f"{delta:+.2f}", controversy_trend_state(std, bgm_std, thresholds), f"AVG {score:.2f} · N{int(value(item, 'voters', default=0))}", f"BGM SD {bgm_std:.2f}"
+    if mode == "favorite":
+        points = int(round(float(value(item, "favoritePoints", "favorite_points", default=0))))
+        score_rank = value(item, "scoreRank", "score_rank")
+        if score_rank is None:
+            return str(points), "—", "flat", f"TOP5 {int(value(item, 'top5Count', 'top5_count', default=0))}", "SCORE --"
+        score_rank = int(score_rank)
+        delta = score_rank - display_rank
+        state = favorite_trend_state(display_rank, score_rank, thresholds)
+        return str(points), f"{delta:+d}", state, f"TOP5 {int(value(item, 'top5Count', 'top5_count', default=0))}", f"SCORE #{score_rank}"
+    if mode == "midseason-change":
+        mid = value(item, "midseasonScore", "midseason_score")
+        if mid is None:
+            return f"{score:.2f}", "—", "flat", f"MID N{value(item, 'midseasonVoters', 'midseason_voters', default='--')}", "MID --"
+        mid = float(mid)
+        delta = score - mid
+        state = midseason_trend_state(score, mid, thresholds)
+        return f"{score:.2f}", f"{delta:+.2f}", state, f"MID N{value(item, 'midseasonVoters', 'midseason_voters', default='--')}", f"MID {mid:.2f}"
+
+    bgm = value(item, "bgmScore", "bgm_score")
+    if bgm is None:
+        return f"{score:.2f}", "—", "flat", f"投票数 {int(value(item, 'voters', default=0))}", "BGM --"
+    bgm = float(bgm)
+    delta = score - bgm
+    state = trend_state(score, bgm, mode, thresholds)
+    return f"{score:.2f}", f"{delta:+.2f}", state, f"投票数 {int(value(item, 'voters', default=0))}", f"BGM {bgm:.2f}"
+
+
+def draw_row(canvas, draw, fonts, row: dict, idx: int, assets: Path, mode: str, thresholds: dict | None, cfg: dict):
+    item = row["item"]
+    section = row.get("section", mode)
+    display_rank = int(row.get("display_rank", idx + 1))
+    thresholds = thresholds or {}
     y = L.row_y[idx]
     rank_x1, rank_x2 = L.left, L.left + L.rank_w
     visual_x1, visual_x2 = rank_x2, rank_x2 + L.visual_w
@@ -349,7 +513,7 @@ def draw_row(canvas, draw, fonts, item: dict, idx: int, assets: Path, mode: str,
     foot_y = bottom - L.stats_foot_h
 
     draw.rectangle((rank_x1 + 3, bottom, stats_x2 + 2, bottom + 4), fill=(48, 70, 72, 150))
-    rank_color = COLORS["rank_top"] if idx < 3 else COLORS["rank_normal"]
+    rank_color = COLORS["rank_top"] if display_rank <= 3 else COLORS["rank_normal"]
     draw.rectangle((rank_x1, y, rank_x2 - 1, bottom - 1), fill=rank_color)
     draw.rectangle((stats_x1, y, stats_x2 - 1, bottom - 1), fill=COLORS["stats"])
 
@@ -371,10 +535,13 @@ def draw_row(canvas, draw, fonts, item: dict, idx: int, assets: Path, mode: str,
             vd.point((x, yy), fill=(0, 0, 0, round(min(145, 18 + horiz + vert))))
     canvas.alpha_composite(veil, (visual_x1, y))
 
-    rank = str(idx + 1)
+    if mode in DUAL_MODES and idx in {0, 5}:
+        draw_section_badge(draw, section, fonts, visual_x1, y)
+
+    rank = str(display_rank)
     rank_box = draw.textbbox((0, 0), rank, font=fonts["rank"])
     rw, rh = rank_box[2] - rank_box[0], rank_box[3] - rank_box[1]
-    draw.text((rank_x1 + (L.rank_w - rw) / 2, y + (L.row_h - rh) / 2 - 8), rank, font=fonts["rank"], fill=COLORS["white"] if idx < 3 else COLORS["black"])
+    draw.text((rank_x1 + (L.rank_w - rw) / 2, y + (L.row_h - rh) / 2 - 8), rank, font=fonts["rank"], fill=COLORS["white"] if display_rank <= 3 else COLORS["black"])
 
     lines, anime_font = resolve_title_lines(draw, item, fonts, L.visual_w - 44)
     line_h = 39 if anime_font is fonts["anime"] else 34
@@ -382,24 +549,16 @@ def draw_row(canvas, draw, fonts, item: dict, idx: int, assets: Path, mode: str,
     for line_no, line in enumerate(lines):
         draw.text((visual_x1 + 20, title_y + line_no * line_h), line, font=anime_font, fill=COLORS["white"], stroke_width=1, stroke_fill=COLORS["black"])
 
-    _center_text(draw, f'{float(item.get("score", 0)):.2f}', fonts["metric"], (stats_x1, y, split, foot_y), COLORS["white"])
-
-    bgm_label, delta_label, state = comparison_values(item, mode, thresholds)
+    metric_label, delta_label, state, left_foot, right_foot = row_values(item, mode, display_rank, thresholds)
+    _center_text(draw, metric_label, fonts["metric"], (stats_x1, y, split, foot_y), COLORS["white"])
     paste_trend_icon(canvas, state, (split + 6, y + 27, split + 78, y + 91))
-    draw_delta_text(
-        draw,
-        delta_label,
-        fonts["trend_delta"],
-        (split + 79, y, stats_x2 - 4, foot_y),
-        COLORS["white"],
-        minus_y_offset=int(cfg.get("delta_minus_y_offset", L.delta_minus_y_offset)),
-    )
+    draw_delta_text(draw, delta_label, fonts["trend_delta"], (split + 79, y, stats_x2 - 4, foot_y), COLORS["white"], minus_y_offset=int(value(cfg, "deltaMinusYOffset", "delta_minus_y_offset", default=L.delta_minus_y_offset)))
 
     strip_color = COLORS[f"trend_{state}"]
     strip_text = COLORS["white"] if state == "down" else COLORS["black"]
     draw.rectangle((stats_x1, foot_y, stats_x2 - 1, bottom - 1), fill=strip_color)
-    _center_text(draw, f'投票数 {int(item.get("voters", 0))}', fonts["aux"], (stats_x1, foot_y, split, bottom), strip_text)
-    _center_text(draw, bgm_label, fonts["aux"], (split, foot_y, stats_x2, bottom), strip_text)
+    _center_text(draw, left_foot, fonts["aux"], (stats_x1, foot_y, split, bottom), strip_text)
+    _center_text(draw, right_foot, fonts["aux"], (split, foot_y, stats_x2, bottom), strip_text)
 
 
 def render(cfg: dict, out: Path):
@@ -409,10 +568,10 @@ def render(cfg: dict, out: Path):
     canvas = Image.new("RGBA", (L.width, L.height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(canvas)
     draw_header(draw, fonts, cfg)
-    items = sort_items(list(cfg.get("items", [])), mode)[:10]
+    rows = display_rows(list(cfg.get("items", [])), mode)[:10]
     assets = Path(cfg.get("assets", "."))
-    for idx, item in enumerate(items):
-        draw_row(canvas, draw, fonts, item, idx, assets, mode, thresholds, cfg)
+    for idx, row in enumerate(rows):
+        draw_row(canvas, draw, fonts, row, idx, assets, mode, thresholds, cfg)
     draw_stats_column_headers(draw, fonts, cfg)
     out.parent.mkdir(parents=True, exist_ok=True)
     canvas.save(out)
