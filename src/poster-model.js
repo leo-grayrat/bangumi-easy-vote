@@ -47,8 +47,8 @@ const DEFAULT_FONT_SIZES = Object.freeze({
 
 export const POSTER_DEFAULTS = Object.freeze({
   mode: 'red',
-  title: '7月新番中期评分 TOP 10',
-  subtitle: 'MID-SEASON TOP 10 ANIME',
+  title: '7月新番完结评分 TOP 10',
+  subtitle: 'SEASON FINALE TOP 10 ANIME',
   comparisonLabel: 'VS BANGUMI',
   thresholds: DEFAULT_THRESHOLDS,
   style: Object.freeze({
@@ -261,21 +261,21 @@ function normalizeStyle(input = {}) {
 function defaultCopy(mode) {
   if (mode === 'black') {
     return {
-      title: '7月新番中期黑榜 BOTTOM 10',
-      subtitle: POSTER_DEFAULTS.subtitle,
+      title: '7月新番完结黑榜 BOTTOM 10',
+      subtitle: 'SEASON FINALE BOTTOM 10 ANIME',
       comparisonLabel: 'VS BANGUMI',
     };
   }
   if (mode === 'controversy') {
     return {
-      title: '7月新番中期争议度',
+      title: '7月新番完结争议度',
       subtitle: 'MOST CONTROVERSIAL / MOST CONSISTENT',
       comparisonLabel: 'VS BANGUMI',
     };
   }
   if (mode === 'favorite') {
     return {
-      title: '7月新番中期喜爱度 TOP 10',
+      title: '7月新番完结喜爱度 TOP 10',
       subtitle: 'FAVORITE TOP 10 ANIME',
       comparisonLabel: 'VS SCORE RANK',
     };
