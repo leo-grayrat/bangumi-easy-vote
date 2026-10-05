@@ -1,0 +1,28 @@
+{
+  "mode": "bgm-deviation",
+  "title": "7月新番社内 / Bangumi 评分偏差",
+  "subtitle": "MOST ABOVE BANGUMI / MOST BELOW BANGUMI",
+  "comparisonLabel": "VS BANGUMI",
+  "thresholds": {
+    "scoreBgmDown": 0.0,
+    "scoreBgmUp": 0.7,
+    "controversyDown": -0.5,
+    "controversyUp": 0.5,
+    "favoriteDown": 0,
+    "favoriteUp": 5,
+    "midseasonDown": 0.0,
+    "midseasonUp": 0.0
+  },
+  "items": [
+    {"title": "与你相恋到生命尽头", "score": 8.25, "voters": 20, "bgmScore": 6.64},
+    {"title": "关于我转生变成史莱姆这档事 第4期 Part.1（后半部分）", "score": 7.4545454545, "voters": 11, "bgmScore": 6.28},
+    {"title": "花织同学转生后还是想干架", "score": 7.8333333333, "voters": 12, "bgmScore": 6.85},
+    {"title": "转学后班上的清纯可爱美少女 竟是小时候玩在一起的哥们", "score": 5.8333333333, "voters": 12, "bgmScore": 4.88},
+    {"title": "少女怪兽焦糖味", "score": 7.1428571429, "voters": 14, "bgmScore": 6.26},
+    {"title": "再见 拉拉", "score": 5.5555555556, "voters": 27, "bgmScore": 6.54},
+    {"title": "超超超超喜欢你的100个女孩子 第3期", "score": 7.2142857143, "voters": 14, "bgmScore": 7.48},
+    {"title": "画完这个在去死", "score": 7.7692307692, "voters": 13, "bgmScore": 8.02},
+    {"title": "幼女战记 第2期", "score": 6.9, "voters": 10, "bgmScore": 7.13},
+    {"title": "GrowUpShow向日葵马戏团", "score": 7.1052631579, "voters": 19, "bgmScore": 7.22}
+  ]
+}
