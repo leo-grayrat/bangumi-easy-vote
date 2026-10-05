@@ -1,72 +1,28 @@
 {
   "mode": "favorite",
-  "title": "7月新番中期喜爱度 TOP 10",
+  "title": "7月新番完结喜爱度 TOP 10",
   "subtitle": "FAVORITE TOP 10 ANIME",
   "comparisonLabel": "VS SCORE RANK",
   "thresholds": {
+    "scoreBgmDown": 0.0,
+    "scoreBgmUp": 0.7,
+    "controversyDown": -0.5,
+    "controversyUp": 0.5,
+    "favoriteDown": 0,
     "favoriteUp": 5,
-    "favoriteDown": 0
+    "midseasonDown": 0.0,
+    "midseasonUp": 0.0
   },
   "items": [
-    {
-      "title": "再见 拉拉",
-      "favoritePoints": 28,
-      "top5Count": 7,
-      "scoreRank": 15
-    },
-    {
-      "title": "感谢对战",
-      "favoritePoints": 17,
-      "top5Count": 4,
-      "scoreRank": 13
-    },
-    {
-      "title": "穹庐下的魔女",
-      "favoritePoints": 16,
-      "top5Count": 4,
-      "scoreRank": 2
-    },
-    {
-      "title": "画完这个再去死",
-      "favoritePoints": 15,
-      "top5Count": 4,
-      "scoreRank": 14
-    },
-    {
-      "title": "无职转生 第3期",
-      "favoritePoints": 12,
-      "top5Count": 3,
-      "scoreRank": 8
-    },
-    {
-      "title": "死神 千年血战篇 Part.4 祸进谭",
-      "favoritePoints": 10,
-      "top5Count": 3,
-      "scoreRank": 1
-    },
-    {
-      "title": "超超超超喜欢你的100个女孩子 第3期",
-      "favoritePoints": 10,
-      "top5Count": 2,
-      "scoreRank": 4
-    },
-    {
-      "title": "黄泉的使者",
-      "favoritePoints": 9,
-      "top5Count": 3,
-      "scoreRank": 3
-    },
-    {
-      "title": "炒翻天",
-      "favoritePoints": 7,
-      "top5Count": 2,
-      "scoreRank": 6
-    },
-    {
-      "title": "碧蓝之海 第3期",
-      "favoritePoints": 6,
-      "top5Count": 3,
-      "scoreRank": 12
-    }
+    {"title": "无职转生 第3期", "favoritePoints": 82, "top5Count": 20, "scoreRank": 5},
+    {"title": "尼古喵喵", "favoritePoints": 64, "top5Count": 19, "scoreRank": 4},
+    {"title": "Re:从零开始的异世界生活 第4期 Part.2 夺还篇", "titleLines": ["Re:从零开始的异世界生活 第4期", "Part.2 夺还篇"], "favoritePoints": 55, "top5Count": 19, "scoreRank": 13},
+    {"title": "穹庐下的魔女", "favoritePoints": 51, "top5Count": 14, "scoreRank": 1},
+    {"title": "与你相恋到生命尽头", "favoritePoints": 43, "top5Count": 12, "scoreRank": 3},
+    {"title": "躲在超市后门抽烟的两人", "favoritePoints": 38, "top5Count": 11, "scoreRank": 16},
+    {"title": "再见 拉拉", "favoritePoints": 32, "top5Count": 12, "scoreRank": 27},
+    {"title": "碧蓝之海 第3期", "favoritePoints": 28, "top5Count": 9, "scoreRank": 12},
+    {"title": "感谢对战 大小姐才不玩格斗游戏", "favoritePoints": 28, "top5Count": 9, "scoreRank": 11},
+    {"title": "相反的你和我 第2期", "favoritePoints": 26, "top5Count": 8, "scoreRank": 6}
   ]
 }
