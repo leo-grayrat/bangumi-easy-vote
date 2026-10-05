@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { handlePosterRequest } from '../scripts/poster-api.mjs';
 
-test('poster api persists image bytes, per-mode project state and visual plans across requests', async () => {
+test('poster api persists image bytes, six per-mode project states and visual plans across requests', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'poster-api-'));
   const server = createServer(async (request, response) => {
     if (await handlePosterRequest({request, response, rootDirectory: root})) return;
@@ -29,22 +29,19 @@ test('poster api persists image bytes, per-mode project state and visual plans a
     assert.equal(restored.status, 200);
     assert.deepEqual([...new Uint8Array(await restored.arrayBuffer())], [1,2,3,4]);
 
-    const savedRed = await fetch(`http://127.0.0.1:${port}/api/poster/state?scope=project-demo&mode=red`, {
-      method:'PUT',
-      headers:{'content-type':'application/json'},
-      body:JSON.stringify({project:{mode:'red',title:'Saved red',items:[{imageAsset:asset}]}}),
-    });
-    assert.equal(savedRed.status, 200);
-    const savedFavorite = await fetch(`http://127.0.0.1:${port}/api/poster/state?scope=project-demo&mode=favorite`, {
-      method:'PUT',
-      headers:{'content-type':'application/json'},
-      body:JSON.stringify({project:{mode:'favorite',title:'Saved favorite',items:[]}}),
-    });
-    assert.equal(savedFavorite.status, 200);
-    const loadedRed = await fetch(`http://127.0.0.1:${port}/api/poster/state?scope=project-demo&mode=red`);
-    const loadedFavorite = await fetch(`http://127.0.0.1:${port}/api/poster/state?scope=project-demo&mode=favorite`);
-    assert.equal((await loadedRed.json()).project.title, 'Saved red');
-    assert.equal((await loadedFavorite.json()).project.title, 'Saved favorite');
+    const modes = ['red', 'black', 'controversy', 'favorite', 'midseason-change', 'bgm-deviation'];
+    for (const mode of modes) {
+      const saved = await fetch(`http://127.0.0.1:${port}/api/poster/state?scope=project-demo&mode=${encodeURIComponent(mode)}`, {
+        method:'PUT',
+        headers:{'content-type':'application/json'},
+        body:JSON.stringify({project:{mode,title:`Saved ${mode}`,items:mode === 'red' ? [{imageAsset:asset}] : []}}),
+      });
+      assert.equal(saved.status, 200, mode);
+    }
+    for (const mode of modes) {
+      const loaded = await fetch(`http://127.0.0.1:${port}/api/poster/state?scope=project-demo&mode=${encodeURIComponent(mode)}`);
+      assert.equal((await loaded.json()).project.title, `Saved ${mode}`, mode);
+    }
 
     const visuals = [{
       visualId:'visual-1',
