@@ -4,7 +4,14 @@ import path from 'node:path';
 
 const SAFE_SCOPE = /^[a-z0-9._-]{1,120}$/i;
 const SAFE_ASSET_ID = /^[a-f0-9-]+\.(?:png|jpe?g|webp|gif|avif)$/i;
-const POSTER_MODES = new Set(['red', 'black', 'controversy', 'favorite']);
+const POSTER_MODES = new Set([
+  'red',
+  'black',
+  'controversy',
+  'favorite',
+  'midseason-change',
+  'bgm-deviation',
+]);
 const EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif']);
 const MIME_EXTENSIONS = new Map([
   ['image/png', '.png'],
